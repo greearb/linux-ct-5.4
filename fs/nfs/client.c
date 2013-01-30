@@ -165,6 +165,8 @@ struct nfs_client *nfs_alloc_client(const struct nfs_client_initdata *cl_init)
 
 	memcpy(&clp->cl_addr, cl_init->addr, cl_init->addrlen);
 	clp->cl_addrlen = cl_init->addrlen;
+	memcpy(&clp->srcaddr, cl_init->srcaddr, cl_init->srcaddrlen);
+	clp->srcaddrlen = cl_init->srcaddrlen;
 
 	if (cl_init->hostname) {
 		err = -ENOMEM;
@@ -508,6 +510,7 @@ int nfs_create_rpc_client(struct nfs_client *clp,
 		.protocol	= clp->cl_proto,
 		.nconnect	= clp->cl_nconnect,
 		.address	= (struct sockaddr *)&clp->cl_addr,
+		.saddress	= (struct sockaddr *)&clp->srcaddr,
 		.addrsize	= clp->cl_addrlen,
 		.timeout	= cl_init->timeparms,
 		.servername	= clp->cl_hostname,
@@ -668,6 +671,8 @@ static int nfs_init_server(struct nfs_server *server,
 		.addr = (const struct sockaddr *)&data->nfs_server.address,
 		.addrlen = data->nfs_server.addrlen,
 		.nfs_mod = nfs_mod,
+		.srcaddr = (const struct sockaddr *)&data->srcaddr.address,
+		.srcaddrlen = data->srcaddr.addrlen,
 		.proto = data->nfs_server.protocol,
 		.net = data->net,
 		.timeparms = &timeparms,
