@@ -951,6 +951,8 @@ static struct nfs_parsed_mount_data *nfs_alloc_parsed_mount_data(void)
 		data->need_mount	= true;
 		data->net		= current->nsproxy->net_ns;
 		data->lsm_opts		= NULL;
+		data->srcaddr.address.ss_family = AF_UNSPEC;
+		data->srcaddr.addrlen = sizeof(data->srcaddr.address);
 	}
 	return data;
 }
