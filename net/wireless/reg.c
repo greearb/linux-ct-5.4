@@ -3375,10 +3375,11 @@ int regulatory_hint_found_beacon(struct wiphy *wiphy,
 	if (!reg_beacon)
 		return -ENOMEM;
 
-	pr_debug("Found new beacon on frequency: %d MHz (Ch %d) on %s\n",
-		 beacon_chan->center_freq,
-		 ieee80211_frequency_to_channel(beacon_chan->center_freq),
-		 wiphy_name(wiphy));
+	if (printk_ratelimit())
+		pr_debug("Found new beacon on frequency: %d MHz (Ch %d) on %s\n",
+			 beacon_chan->center_freq,
+			 ieee80211_frequency_to_channel(beacon_chan->center_freq),
+			 wiphy_name(wiphy));
 
 	memcpy(&reg_beacon->chan, beacon_chan,
 	       sizeof(struct ieee80211_channel));
