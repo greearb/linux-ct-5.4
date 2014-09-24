@@ -3238,8 +3238,13 @@ static void ath10k_regd_update(struct ath10k *ar)
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED) && ar->dfs_detector) {
 		nl_dfs_reg = ar->dfs_detector->region;
 		wmi_dfs_reg = ath10k_mac_get_dfs_region(nl_dfs_reg);
+		ath10k_dbg(ar, ATH10K_DBG_REGULATORY,
+			   "nl_dfs_reg: %i  wmi_dfs_reg: %i\n",
+			    nl_dfs_reg, wmi_dfs_reg);
 	} else {
 		wmi_dfs_reg = WMI_UNINIT_DFS_DOMAIN;
+		ath10k_dbg(ar, ATH10K_DBG_REGULATORY,
+			   "not DFS_CERTIFIED or no dfs_detector.\n");
 	}
 
 	/* Target allows setting up per-band regdomain but ath_common provides
@@ -8738,6 +8743,14 @@ static int ath10k_mac_init_rd(struct ath10k *ar)
 	return 0;
 }
 
+/* Force over-ride const logic in core so we don't have to patch core. */
+#define ATH_ASSIGN_CONST_U16(a,b)                   \
+   do {                                             \
+      u16* __val_p = (u16*)(&(a));                  \
+      *__val_p = b;                                 \
+   } while (0)
+
+
 int ath10k_mac_register(struct ath10k *ar)
 {
 	static const u32 cipher_suites[] = {
@@ -8988,8 +9001,7 @@ int ath10k_mac_register(struct ath10k *ar)
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->normal_mode_fw.fw_file.fw_features)) {
 			ar->hw->wiphy->iface_combinations = ath10k_10x_ct_if_comb;
-			ath10k_10x_ct_if_comb[0].limits[0].max =
-				ar->max_num_vdevs;
+			ATH_ASSIGN_CONST_U16(ath10k_10x_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
 			ath10k_10x_ct_if_comb[0].max_interfaces =
 				ar->max_num_vdevs;
 
