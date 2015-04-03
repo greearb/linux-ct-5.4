@@ -137,6 +137,7 @@ enum {
  * @HWSIM_ATTR_PERM_ADDR: permanent mac address of new radio
  * @HWSIM_ATTR_IFTYPE_SUPPORT: u32 attribute of supported interface types bits
  * @HWSIM_ATTR_CIPHER_SUPPORT: u32 array of supported cipher types
+ * @HWSIM_ATTR_RX_INFO: hwsim_rx_info
  * @__HWSIM_ATTR_MAX: enum limit
  */
 
@@ -167,6 +168,7 @@ enum {
 	HWSIM_ATTR_PERM_ADDR,
 	HWSIM_ATTR_IFTYPE_SUPPORT,
 	HWSIM_ATTR_CIPHER_SUPPORT,
+	HWSIM_ATTR_RX_INFO,
 	__HWSIM_ATTR_MAX,
 };
 #define HWSIM_ATTR_MAX (__HWSIM_ATTR_MAX - 1)
@@ -251,4 +253,21 @@ struct hwsim_tx_rate_flag {
 	s8 idx;
 	u16 flags;
 } __packed;
+
+/**
+ * This relates to the ieee80211_rx_status struct in mac80211.h
+ * @rx_flags: %RX_FLAG_* (see  mac80211_rx_flags)
+ * @vht_flags: %RX_VHT_FLAG_*
+ * @vht_nss: number of streams (VHT only)
+ * @ampdu_reference: A-MPDU reference number, must be a different value for
+ *	each A-MPDU but the same for each subframe within one A-MPDU
+ */
+struct hwsim_rx_info {
+	u32 rx_flags;
+	u8 vht_flags;
+	u8 vht_nss;
+	u16 unused_pad; /* pad to 32-bits, and space for growth */
+	u32 ampdu_reference;
+} __packed;
+
 #endif /* __MAC80211_HWSIM_H */
