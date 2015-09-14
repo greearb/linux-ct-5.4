@@ -860,6 +860,12 @@ enum ath10k_fw_features {
 	 * encryption (ie, commercial version of CT firmware) */
 	ATH10K_FW_FEATURE_CT_RXSWCRYPT = 32,
 
+	/* Firmware supports extended wmi_common_peer_assoc_complete_cmd that contains
+	 * an array of rate-disable masks.  This allows the host to have better control
+	 * over what rates the firmware will use.  CT Firmware only (v15 and higher)
+	 */
+	ATH10K_FW_FEATURE_CT_RATEMASK = 33,
+
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,
 };
