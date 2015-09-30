@@ -1078,11 +1078,16 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 
 	rcu_read_lock();
 
+	sta = sta_info_get_by_vif(local, hdr->addr2, hdr->addr1);
+	if (sta)
+		goto found_it;
+
 	for_each_sta_info(local, hdr->addr1, sta, tmp) {
 		/* skip wrong virtual interface */
 		if (!ether_addr_equal(hdr->addr2, sta->sdata->vif.addr))
 			continue;
 
+found_it:
 		status.sta = &sta->sta;
 		break;
 	}
