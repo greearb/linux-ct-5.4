@@ -879,6 +879,27 @@ enum ath10k_fw_features {
 	 */
 	ATH10K_FW_FEATURE_CT_RATEMASK = 33,
 
+	/* Set-special cmd-id is supported. */
+	ATH10K_FW_FEATURE_SET_SPECIAL_CT = 34,
+
+	/* Register-dump is supported. */
+	ATH10K_FW_FEATURE_REGDUMP_CT = 35,
+
+	/* TX-Rate is reported. */
+	ATH10K_FW_FEATURE_TXRATE_CT = 36,
+
+	/* Firmware can flush all peers. */
+	ATH10K_FW_FEATURE_FLUSH_ALL_CT = 37,
+
+	/* Firmware can read memory with ping-pong protocol. */
+	ATH10K_FW_FEATURE_PINGPONG_READ_CT = 38,
+
+	/* Firmware can skip channel reservation. */
+	ATH10K_FW_FEATURE_SKIP_CH_RES_CT = 39,
+
+	/* Firmware supports NOPcan skip channel reservation. */
+	ATH10K_FW_FEATURE_NOP_CT = 40,
+
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,
 };

@@ -7570,7 +7570,7 @@ void ath10k_mac_wait_tx_complete(struct ath10k *ar)
 	/* If we are CT firmware, ask it to flush all tids on all peers on
 	 * all vdevs.  Normal firmware will just crash if you do this.
 	 */
-	if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
+	if (test_bit(ATH10K_FW_FEATURE_FLUSH_ALL_CT,
 		     ar->running_fw->fw_file.fw_features))
 		ath10k_wmi_peer_flush(ar, 0xFFFFFFFF, peer_addr, 0xFFFFFFFF);
 

@@ -637,6 +637,13 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_CT_RXSWCRYPT] = "rxswcrypt-CT",
 	[ATH10K_FW_FEATURE_HAS_TXSTATUS_NOACK] = "txstatus-noack",
 	[ATH10K_FW_FEATURE_CT_RATEMASK] = "ratemask-CT",
+	[ATH10K_FW_FEATURE_SET_SPECIAL_CT] = "set-special-CT",
+	[ATH10K_FW_FEATURE_REGDUMP_CT] = "regdump-CT",
+	[ATH10K_FW_FEATURE_TXRATE_CT] = "txrate-CT",
+	[ATH10K_FW_FEATURE_FLUSH_ALL_CT] = "flush-all-CT",
+	[ATH10K_FW_FEATURE_PINGPONG_READ_CT] = "pingpong-CT",
+	[ATH10K_FW_FEATURE_SKIP_CH_RES_CT] = "ch-regs-CT",
+	[ATH10K_FW_FEATURE_NOP_CT] = "nop-CT",
 };
 
 static unsigned int ath10k_core_get_fw_feature_str(char *buf,
@@ -2364,6 +2371,23 @@ static int ath10k_core_init_firmware_features(struct ath10k *ar)
 		return -EINVAL;
 	}
 
+	/* CT 10.1 firmware slowly added features, all mostly under one feature
+	 * flag.  But, for 10.2, I need to add features at a time so that we can
+	 * maintain ability to bisect the firmware and to have fine-grained support
+	 * for enabling/disabling firmware features.  For backwards-compt with 10.1
+	 * firmware, set all the flags here.
+	 */
+	if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT, fw_file->fw_features) &&
+	    (fw_file->wmi_op_version == ATH10K_FW_WMI_OP_VERSION_10_1)) {
+		__set_bit(ATH10K_FW_FEATURE_SET_SPECIAL_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_REGDUMP_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_TXRATE_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_FLUSH_ALL_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_PINGPONG_READ_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_SKIP_CH_RES_CT, fw_file->fw_features);
+		__set_bit(ATH10K_FW_FEATURE_NOP_CT, fw_file->fw_features);
+	}
+
 	ar->wmi.rx_decap_mode = ATH10K_HW_TXRX_NATIVE_WIFI;
 	switch (ath10k_cryptmode_param) {
 	case ATH10K_CRYPT_MODE_HW:
@@ -2888,7 +2912,7 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 		goto err_hif_stop;
 	}
 
-	if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
+	if (test_bit(ATH10K_FW_FEATURE_SET_SPECIAL_CT,
 		     ar->running_fw->fw_file.fw_features)) {
 		/* Apply user-supplied configuration changes. */
 		/* Don't worry about failures..not much we can do, and not worth failing init even
