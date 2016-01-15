@@ -879,8 +879,10 @@ enum ath10k_fw_features {
 	 */
 	ATH10K_FW_FEATURE_CT_RATEMASK = 33,
 
-	/* Set-special cmd-id is supported. */
-	ATH10K_FW_FEATURE_SET_SPECIAL_CT = 34,
+	/* Versions of firmware before approximately 10.2.4.72 would corrupt txop fields
+	 * during burst.  Since this is fixed now, add a flag to denote this.
+	 */
+	ATH10K_FW_FEATURE_HAS_SAFE_BURST = 34,
 
 	/* Register-dump is supported. */
 	ATH10K_FW_FEATURE_REGDUMP_CT = 35,
@@ -902,6 +904,9 @@ enum ath10k_fw_features {
 
 	/* Firmware supports CT HTT MGT feature. */
 	ATH10K_FW_FEATURE_HTT_MGT_CT = 41,
+
+	/* Set-special cmd-id is supported. */
+	ATH10K_FW_FEATURE_SET_SPECIAL_CT = 42,
 
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,

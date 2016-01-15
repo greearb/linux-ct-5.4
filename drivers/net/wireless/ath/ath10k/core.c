@@ -637,7 +637,7 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_CT_RXSWCRYPT] = "rxswcrypt-CT",
 	[ATH10K_FW_FEATURE_HAS_TXSTATUS_NOACK] = "txstatus-noack",
 	[ATH10K_FW_FEATURE_CT_RATEMASK] = "ratemask-CT",
-	[ATH10K_FW_FEATURE_SET_SPECIAL_CT] = "set-special-CT",
+	[ATH10K_FW_FEATURE_HAS_SAFE_BURST] = "safe-burst",
 	[ATH10K_FW_FEATURE_REGDUMP_CT] = "regdump-CT",
 	[ATH10K_FW_FEATURE_TXRATE_CT] = "txrate-CT",
 	[ATH10K_FW_FEATURE_FLUSH_ALL_CT] = "flush-all-CT",
@@ -645,6 +645,7 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_SKIP_CH_RES_CT] = "ch-regs-CT",
 	[ATH10K_FW_FEATURE_NOP_CT] = "nop-CT",
 	[ATH10K_FW_FEATURE_HTT_MGT_CT] = "htt-mgt-CT",
+	[ATH10K_FW_FEATURE_SET_SPECIAL_CT] = "set-special-CT",
 };
 
 static unsigned int ath10k_core_get_fw_feature_str(char *buf,
