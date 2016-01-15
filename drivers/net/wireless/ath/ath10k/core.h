@@ -900,6 +900,9 @@ enum ath10k_fw_features {
 	/* Firmware supports NOPcan skip channel reservation. */
 	ATH10K_FW_FEATURE_NOP_CT = 40,
 
+	/* Firmware supports CT HTT MGT feature. */
+	ATH10K_FW_FEATURE_HTT_MGT_CT = 41,
+
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,
 };
