@@ -2925,6 +2925,14 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 		     ar->running_fw->fw_file.fw_features)) {
 		ar->ct_all_pkts_htt = true;
 	}
+	else if (ar->running_fw->fw_file.wmi_op_version != ATH10K_FW_WMI_OP_VERSION_10_1) {
+		/* Older 10.1 firmware will not have the flag, and we check the HTT version
+		 * in htt_rx.c for it.  But, 10.4 has conflicting HTT version, so disable
+		 * this feature in newer firmware unless it explicitly has the HTT_MGT_CT feature
+		 * flag.
+		 */
+		ar->ct_all_pkts_htt = false;
+	}
 
 	if (test_bit(ATH10K_FW_FEATURE_SET_SPECIAL_CT,
 		     ar->running_fw->fw_file.fw_features)) {
