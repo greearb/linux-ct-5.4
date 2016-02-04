@@ -2242,7 +2242,8 @@ static int ath10k_init_uart(struct ath10k *ar)
 		return ret;
 	}
 
-	ath10k_info(ar, "UART prints enabled\n");
+	ath10k_info(ar, "UART prints enabled: 19200, tx-pin: %d\n",
+		    ar->hw_params.uart_pin);
 	return 0;
 }
 
