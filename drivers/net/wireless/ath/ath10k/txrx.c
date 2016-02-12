@@ -181,6 +181,9 @@ int ath10k_txrx_tx_unref(struct ath10k_htt *htt,
 		return 0;
 	}
 
+	info->status.ack_signal = tx_done->ack_rssi;
+	/* TODO:  Need info->status.is_valid_ack_signal set for CT FW? */
+
 	if (!(info->flags & IEEE80211_TX_CTL_NO_ACK))
 		info->flags |= IEEE80211_TX_STAT_ACK;
 

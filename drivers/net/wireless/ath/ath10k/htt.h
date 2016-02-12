@@ -985,7 +985,10 @@ struct htt_data_tx_completion {
 		} __packed;
 	} __packed;
 	u8 num_msdus;
-	u8 flags2; /* HTT_TX_CMPL_FLAG_DATA_RSSI */
+	u8 flag_ack_rssi_filled:1, /* For 10.4 firmware */
+	   flag_reserved:5,
+	   flag_tx_rate_filled:1, /* CT firmware only currently */
+	   flag_reserved2:1;
 	__le16 msdus[0]; /* variable length based on %num_msdus */
 } __packed;
 
