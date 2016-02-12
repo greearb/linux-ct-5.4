@@ -9600,8 +9600,7 @@ int ath10k_mac_register(struct ath10k *ar)
 	case ATH10K_FW_WMI_OP_VERSION_10_2_4:
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->running_fw->fw_file.fw_features)) {
-			ath10k_10x_ct_if_comb[0].limits[0].max =
-				ar->max_num_vdevs;
+			ATH_ASSIGN_CONST_U16(ath10k_10x_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
 			ath10k_10x_ct_if_comb[0].max_interfaces =
 				ar->max_num_vdevs;
 
@@ -9625,12 +9624,11 @@ int ath10k_mac_register(struct ath10k *ar)
 	case ATH10K_FW_WMI_OP_VERSION_10_4:
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->running_fw->fw_file.fw_features)) {
-			ath10k_10_4_ct_if_comb[0].limits[0].max =
-				ar->max_num_vdevs;
+			ATH_ASSIGN_CONST_U16(ath10k_10_4_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
 			ath10k_10_4_ct_if_comb[0].max_interfaces =
 				ar->max_num_vdevs;
 			if (ath10k_10_4_ct_if_comb[0].limits[1].max > ar->max_num_vdevs)
-				ath10k_10_4_ct_if_comb[0].limits[1].max = ar->max_num_vdevs;
+				ATH_ASSIGN_CONST_U16(ath10k_10_4_ct_if_comb[0].limits[1].max, ar->max_num_vdevs);
 
 			if (test_bit(WMI_SERVICE_VDEV_DIFFERENT_BEACON_INTERVAL_SUPPORT,
 				     ar->wmi.svc_map)) {
