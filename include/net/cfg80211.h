@@ -2483,6 +2483,7 @@ struct cfg80211_bss_selection {
  *	on scan results)
  * @channel_hint: The channel of the recommended BSS for initial connection or
  *	%NULL if not specified
+ * @scan_width: width of the control channel
  * @bssid: The AP BSSID or %NULL if not specified (auto-select based on scan
  *	results)
  * @bssid_hint: The recommended AP BSSID for initial connection to the BSS or
@@ -2539,6 +2540,7 @@ struct cfg80211_bss_selection {
 struct cfg80211_connect_params {
 	struct ieee80211_channel *channel;
 	struct ieee80211_channel *channel_hint;
+	enum nl80211_bss_scan_width scan_width;
 	const u8 *bssid;
 	const u8 *bssid_hint;
 	const u8 *ssid;
@@ -5898,9 +5900,9 @@ void cfg80211_bss_iter(struct wiphy *wiphy,
 		       void *iter_data);
 
 static inline enum nl80211_bss_scan_width
-cfg80211_chandef_to_scan_width(const struct cfg80211_chan_def *chandef)
+cfg80211_chan_to_scan_width(enum nl80211_chan_width cw)
 {
-	switch (chandef->width) {
+	switch (cw) {
 	case NL80211_CHAN_WIDTH_5:
 	case NL80211_CHAN_WIDTH_5_NOHT:
 		return NL80211_BSS_CHAN_WIDTH_5;
@@ -5910,6 +5912,12 @@ cfg80211_chandef_to_scan_width(const struct cfg80211_chan_def *chandef)
 	default:
 		return NL80211_BSS_CHAN_WIDTH_20;
 	}
+}
+
+static inline enum nl80211_bss_scan_width
+cfg80211_chandef_to_scan_width(const struct cfg80211_chan_def *chandef)
+{
+	return cfg80211_chan_to_scan_width(chandef->width);
 }
 
 /**
