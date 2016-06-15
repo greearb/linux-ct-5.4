@@ -1655,6 +1655,8 @@ static bool ieee80211_tx_frags(struct ieee80211_local *local,
 		}
 #endif
 
+		info->control.vif = vif;
+
 		spin_lock_irqsave(&local->queue_stop_reason_lock, flags);
 		if (local->queue_stop_reasons[q] ||
 		    (!txpending && !skb_queue_empty(&local->pending[q]))) {
@@ -1719,7 +1721,6 @@ static bool ieee80211_tx_frags(struct ieee80211_local *local,
 		}
 		spin_unlock_irqrestore(&local->queue_stop_reason_lock, flags);
 
-		info->control.vif = vif;
 		control.sta = sta;
 
 		__skb_unlink(skb, skbs);
