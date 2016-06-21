@@ -9367,7 +9367,6 @@ static const struct wmi_ops wmi_ops = {
 	.gen_vdev_up = ath10k_wmi_op_gen_vdev_up,
 	.gen_vdev_down = ath10k_wmi_op_gen_vdev_down,
 	.gen_vdev_set_param = ath10k_wmi_op_gen_vdev_set_param,
-	.gen_peer_assoc = ath10k_wmi_10_4_op_gen_peer_assoc,
 	.gen_vdev_install_key = ath10k_wmi_op_gen_vdev_install_key,
 	.gen_vdev_spectral_conf = ath10k_wmi_op_gen_vdev_spectral_conf,
 	.gen_vdev_spectral_enable = ath10k_wmi_op_gen_vdev_spectral_enable,
@@ -9621,6 +9620,7 @@ static const struct wmi_ops wmi_10_4_ops = {
 	.rx = ath10k_wmi_10_4_op_rx,
 	.map_svc = wmi_10_4_svc_map,
 
+	.gen_peer_assoc = ath10k_wmi_10_4_op_gen_peer_assoc,
 	.pull_fw_stats = ath10k_wmi_10_4_op_pull_fw_stats,
 	.pull_scan = ath10k_wmi_op_pull_scan_ev,
 	.pull_mgmt_rx = ath10k_wmi_10_4_op_pull_mgmt_rx_ev,
