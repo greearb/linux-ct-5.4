@@ -5536,6 +5536,13 @@ static void ath10k_wmi_event_service_ready_work(struct work_struct *work)
 	ath10k_dbg_dump(ar, ATH10K_DBG_WMI, NULL, "wmi svc: ",
 			arg.service_map, arg.service_map_len);
 
+	// RX Sw Crypt mode, which uses raw receive and disables some HW rx logic,
+	// appears to break receiving MU-MIMO properly, so tweak that here.
+	if (test_bit(ATH10K_FW_FEATURE_CT_RXSWCRYPT,
+		     ar->running_fw->fw_file.fw_features) &&
+	    ar->request_nohwcrypt)
+		ar->vht_cap_info &= ~IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE;
+
 	if (ar->num_rf_chains > ar->max_spatial_stream) {
 		ath10k_warn(ar, "hardware advertises support for more spatial streams than it should (%d > %d)\n",
 			    ar->num_rf_chains, ar->max_spatial_stream);
