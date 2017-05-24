@@ -4594,6 +4594,38 @@ struct ieee80211_txq *ath10k_mac_txq_lookup(struct ath10k *ar,
 		return NULL;
 }
 
+void ath10k_mac_print_txq_info(struct ath10k *ar, u16 peer_id, u8 tid)
+{
+	struct ath10k_peer *peer;
+
+	lockdep_assert_held(&ar->data_lock);
+
+	peer = ar->peer_map[peer_id];
+	if (!peer) {
+		ath10k_warn(ar, "Could not find peer for peer id %d\n", peer_id);
+		return;
+	}
+
+	if (peer->removed) {
+		ath10k_warn(ar, "peer->removed is true, peer: %p id %d\n", peer, peer_id);
+		return;
+	}
+
+	if (peer->sta) {
+		if (!peer->sta->txq[tid]) {
+			ath10k_warn(ar, "peer->sta->txq[%d] is NULL, id %d\n", tid, peer_id);
+		}
+	}
+	else if (peer->vif) {
+		if (!peer->vif->txq) {
+			ath10k_warn(ar, "peer->vif->txq is NULL, id %d\n", peer_id);
+		}
+	}
+	else {
+		ath10k_warn(ar, "Both peer->sta and peer->vif are NULL, id %d\n", peer_id);
+	}
+}
+
 static bool ath10k_mac_tx_can_push(struct ieee80211_hw *hw,
 				   struct ieee80211_txq *txq)
 {

@@ -3413,9 +3413,13 @@ static void ath10k_htt_rx_tx_fetch_ind(struct ath10k *ar, struct sk_buff *skb)
 		 */
 
 		if (unlikely(!txq)) {
-			if (net_ratelimit())
+			if (net_ratelimit()) {
 				ath10k_warn(ar, "fetch-ind: failed to lookup txq for peer_id %hu tid %hhu\n",
 					    peer_id, tid);
+				spin_lock_bh(&ar->data_lock);
+				ath10k_mac_print_txq_info(ar, peer_id, tid);
+				spin_unlock_bh(&ar->data_lock);
+			}
 			continue;
 		}
 
