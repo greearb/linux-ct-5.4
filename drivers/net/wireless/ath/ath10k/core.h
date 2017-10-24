@@ -1452,6 +1452,10 @@ struct ath10k {
 		u32 reg_ifs_slot;
 	} eeprom_overrides;
 
+	/* CSI report accumulator. */
+	u8 csi_data[4096];
+	u16 csi_data_len;
+
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };
