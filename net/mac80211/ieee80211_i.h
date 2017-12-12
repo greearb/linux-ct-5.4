@@ -924,6 +924,8 @@ struct ieee80211_sub_if_data {
 	bool reserved_radar_required;
 	bool reserved_ready;
 
+	bool warned_sdata_in_driver;
+
 	/* used to reconfigure hardware SM PS */
 	struct work_struct recalc_smps;
 

@@ -14,9 +14,20 @@
 
 static inline bool check_sdata_in_driver(struct ieee80211_sub_if_data *sdata)
 {
-	return !WARN(!(sdata->flags & IEEE80211_SDATA_IN_DRIVER),
-		     "%s:  Failed check-sdata-in-driver check, flags: 0x%x\n",
-		     sdata->dev ? sdata->dev->name : sdata->name, sdata->flags);
+	if (unlikely(!(sdata->flags & IEEE80211_SDATA_IN_DRIVER))) {
+		if (!sdata->warned_sdata_in_driver) {
+			WARN(1, "%s:  Failed check-sdata-in-driver check, flags: 0x%x\n",
+			     sdata->dev ? sdata->dev->name : sdata->name, sdata->flags);
+			sdata->warned_sdata_in_driver = true;
+		}
+		else {
+			/* just print error instead of full WARN spam */
+			sdata_err(sdata, "Failed check-sdata-in-driver check, flags: 0x%x\n",
+				  sdata->flags);
+		}
+		return false;
+	}
+	return true;
 }
 
 static inline bool _check_sdata_in_driver(struct ieee80211_sub_if_data *sdata,
