@@ -1115,6 +1115,7 @@ struct ath10k {
 
 	enum ath10k_hw_rev hw_rev;
 	u16 dev_id;
+	bool ok_tx_rate_status; /* Firmware is sending tx-rate status?  (CT only) */
 	bool fw_powerup_failed; /* If true, might take reboot to recover. */
 	u32 chip_id;
 	enum ath10k_dev_type dev_type;
