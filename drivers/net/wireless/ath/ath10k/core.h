@@ -696,6 +696,7 @@ struct ath10k_fw_crash_data {
 struct ath10k_debug {
 	struct dentry *debugfs_phy;
 
+	struct ath10k_rx_reorder_stats rx_reorder_stats;
 	struct ath10k_fw_stats fw_stats;
 	struct completion fw_stats_complete;
 	bool fw_stats_done;
@@ -932,6 +933,9 @@ enum ath10k_fw_features {
 	 *  CT only option.
 	 */
 	ATH10K_FW_FEATURE_HAS_TX_RC_CT = 45,
+
+	/* Do we support requesting custom stats */
+	ATH10K_FW_FEATURE_CUST_STATS_CT = 46,
 
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,
