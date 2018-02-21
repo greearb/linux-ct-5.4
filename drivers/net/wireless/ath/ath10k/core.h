@@ -1195,6 +1195,7 @@ struct ath10k {
 #define ATH10K_FWCFG_BMISS_VDEVS    (1<<12)
 #define ATH10K_FWCFG_MAX_AMSDUS     (1<<13)
 #define ATH10K_FWCFG_NOBEAMFORM_MU  (1<<14)
+#define ATH10K_FWCFG_NOBEAMFORM_SU  (1<<15)
 
 		u32 flags; /* let us know which fields have been set */
 		char calname[100];
@@ -1207,6 +1208,7 @@ struct ath10k {
 		u32 peers;
 		u32 nohwcrypt;
 		u32 nobeamform_mu;
+		u32 nobeamform_su;
 		u32 rate_ctrl_objs;
 		u32 tx_desc; /* max_num_pending_tx descriptors */
 		u32 max_nss; /* max_spatial_stream */
@@ -1322,6 +1324,7 @@ struct ath10k {
 	int num_tids;
 	bool request_nohwcrypt; /* desired setting */
 	bool request_nobeamform_mu;
+	bool request_nobeamform_su;
 	u32 num_ratectrl_objs;
 	u32 skid_limit;
 	u32 bmiss_offload_max_vdev;
