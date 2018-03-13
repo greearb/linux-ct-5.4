@@ -9257,7 +9257,6 @@ static struct ieee80211_iface_combination ath10k_10x_if_comb[] = {
 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
 					BIT(NL80211_CHAN_WIDTH_20) |
 					BIT(NL80211_CHAN_WIDTH_40) |
-					BIT(NL80211_CHAN_WIDTH_160) | /* TODO:  Verify --Ben */
 					BIT(NL80211_CHAN_WIDTH_80),
 #endif
 	},
@@ -9329,6 +9328,8 @@ static struct ieee80211_iface_combination ath10k_10x_ct_if_comb[] = {
 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
 					BIT(NL80211_CHAN_WIDTH_20) |
 					BIT(NL80211_CHAN_WIDTH_40) |
+					BIT(NL80211_CHAN_WIDTH_80P80) | /* TODO:  Verify --Ben */
+					BIT(NL80211_CHAN_WIDTH_160) | /* TODO:  Verify --Ben */
 					BIT(NL80211_CHAN_WIDTH_80),
 #endif
 	},
@@ -9399,6 +9400,8 @@ static const struct ieee80211_iface_combination ath10k_10_4_if_comb[] = {
 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
 					BIT(NL80211_CHAN_WIDTH_20) |
 					BIT(NL80211_CHAN_WIDTH_40) |
+					BIT(NL80211_CHAN_WIDTH_80P80) | /* TODO:  Verify --Ben */
+					BIT(NL80211_CHAN_WIDTH_160) | /* TODO:  Verify --Ben */
 					BIT(NL80211_CHAN_WIDTH_80),
 #endif
 	},
