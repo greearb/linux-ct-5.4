@@ -1573,7 +1573,7 @@ void ath10k_debug_get_et_stats(struct ieee80211_hw *hw,
 
 	spin_lock_bh(&ar->data_lock);
 
-	if (ar->hw_params.has_shifted_cc_wraparound)
+	if (ar->hw_params.cc_wraparound_type == ATH10K_HW_CC_WRAP_SHIFTED_ALL)
 		d_flags |= 0x1;
 
 	data[i++] = pdev_stats->hw_reaped; /* ppdu reaped */
