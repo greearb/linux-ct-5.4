@@ -3816,10 +3816,13 @@ static int __lock_is_held(const struct lockdep_map *lock, int read);
  * otherwise we could get an interrupt which would want to take locks,
  * which would end up in lockdep again.
  */
-static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
-			  int trylock, int read, int check, int hardirqs_off,
-			  struct lockdep_map *nest_lock, unsigned long ip,
-			  int references, int pin_count)
+static int __lock_acquire_lockdep(struct lockdep_map *lock,
+				  unsigned int subclass,
+				  int trylock, int read, int check,
+				  int hardirqs_off,
+				  struct lockdep_map *nest_lock,
+				  unsigned long ip,
+				  int references, int pin_count)
 {
 	struct task_struct *curr = current;
 	struct lock_class *class = NULL;
@@ -4097,13 +4100,13 @@ static int reacquire_held_locks(struct task_struct *curr, unsigned int depth,
 		return 0;
 
 	for (hlock = curr->held_locks + idx; idx < depth; idx++, hlock++) {
-		switch (__lock_acquire(hlock->instance,
-				    hlock_class(hlock)->subclass,
-				    hlock->trylock,
-				    hlock->read, hlock->check,
-				    hlock->hardirqs_off,
-				    hlock->nest_lock, hlock->acquire_ip,
-				    hlock->references, hlock->pin_count)) {
+		switch (__lock_acquire_lockdep(hlock->instance,
+					       hlock_class(hlock)->subclass,
+					       hlock->trylock,
+					       hlock->read, hlock->check,
+					       hlock->hardirqs_off,
+					       hlock->nest_lock, hlock->acquire_ip,
+					       hlock->references, hlock->pin_count)) {
 		case 0:
 			return 1;
 		case 1:
@@ -4491,8 +4494,8 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 
 	current->lockdep_recursion = 1;
 	trace_lock_acquire(lock, subclass, trylock, read, check, nest_lock, ip);
-	__lock_acquire(lock, subclass, trylock, read, check,
-		       irqs_disabled_flags(flags), nest_lock, ip, 0, 0);
+	__lock_acquire_lockdep(lock, subclass, trylock, read, check,
+			       irqs_disabled_flags(flags), nest_lock, ip, 0, 0);
 	current->lockdep_recursion = 0;
 	raw_local_irq_restore(flags);
 }
