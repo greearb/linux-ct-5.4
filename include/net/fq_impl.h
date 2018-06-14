@@ -76,6 +76,10 @@ begin:
 		return NULL;
 
 	head = &tin->new_flows;
+
+	if (WARN_ON_ONCE(((unsigned long)(head)) < 4000))
+		return NULL;
+
 	if (list_empty(head)) {
 		head = &tin->old_flows;
 		if (list_empty(head))

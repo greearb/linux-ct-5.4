@@ -4760,7 +4760,36 @@ int ath10k_mac_tx_push_txq(struct ieee80211_hw *hw,
 	if (ret)
 		return ret;
 
+	/* Add debugging for this crash Brent saw in station reset test */
+	/* FW crashed, then kernel */
+	/*
+	Call Trace:
+ <IRQ>
+ ? dma_pte_clear_level+0x111/0x190
+ ? dma_pte_clear_level+0x111/0x190
+ ath10k_mac_tx_push_txq+0x6f/0x210 [ath10k_core]  # Decodes to the:  if (!skb) line below
+ ath10k_mac_tx_push_pending+0x154/0x1e0 [ath10k_core]
+ ath10k_htt_txrx_compl_task+0xede/0x1780 [ath10k_core]
+ ? ath10k_htc_process_trailer+0x300/0x300 [ath10k_core]
+ ? ath10k_ce_per_engine_service+0xc9/0xe0 [ath10k_pci]
+ ? ath10k_bus_pci_write32+0x3c/0xa0 [ath10k_pci]
+ ath10k_pci_napi_poll+0x44/0xe0 [ath10k_pci]
+ net_rx_action+0x250/0x3b0
+ __do_softirq+0xc2/0x2a3
+ irq_exit+0x7d/0x80
+ do_IRQ+0x45/0xc0
+ common_interrupt+0xf/0xf
+		*/
+	if (WARN_ON(((unsigned long)(txq)) < 4000))
+		return -ENOENT;
+	if (WARN_ON(((unsigned long)(hw)) < 4000))
+		return -ENOENT;
+
 	skb = ieee80211_tx_dequeue(hw, txq);
+
+	if (WARN_ON(((unsigned long)(skb)) < 4000))
+		return -ENOENT;
+
 	if (!skb) {
 		spin_lock_bh(&ar->htt.tx_lock);
 		ath10k_htt_tx_dec_pending(htt);
