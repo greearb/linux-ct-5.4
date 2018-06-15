@@ -4787,7 +4787,7 @@ int ath10k_mac_tx_push_txq(struct ieee80211_hw *hw,
 
 	skb = ieee80211_tx_dequeue(hw, txq);
 
-	if (WARN_ON(((unsigned long)(skb)) < 4000))
+	if (WARN_ON((((unsigned long)(skb)) < 4000) && (((unsigned long)(skb)) > 0)))
 		return -ENOENT;
 
 	if (!skb) {
