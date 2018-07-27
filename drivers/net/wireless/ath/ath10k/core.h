@@ -941,6 +941,9 @@ enum ath10k_fw_features {
 	/* Do we support requesting custom stats */
 	ATH10K_FW_FEATURE_CUST_STATS_CT = 46,
 
+	/* Can the firmware handle a retry limit greater than 2? */
+	ATH10K_FW_FEATURE_RETRY_GT2_CT = 47,
+
 	/* keep last */
 	ATH10K_FW_FEATURE_COUNT,
 };
