@@ -2351,6 +2351,12 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 	 * isn't always enough to find the interface to use; for proper
 	 * VLAN/WDS support we will need a different mechanism (which
 	 * likely isn't going to be monitor interfaces).
+	 *
+	 * I had a question about why we need to do this, and the answer
+	 * is that old hostap used this API and expects it to work like this,
+	 * and also monitor vdevs are not directly mapped into the driver
+	 * (and have no chantx in my case, at least), so you cannot directly
+	 * transmit on a monitor port anyway.
 	 */
 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 
