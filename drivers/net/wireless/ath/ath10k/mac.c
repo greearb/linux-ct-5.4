@@ -7901,27 +7901,47 @@ void ath10k_mac_wait_tx_complete(struct ath10k *ar)
 {
 	bool skip;
 	long time_left;
-	u8 peer_addr[ETH_ALEN] = {0};
+
+	time_left = wait_event_timeout(ar->htt.empty_tx_wq, ({
+			bool empty;
+
+			spin_lock_bh(&ar->htt.tx_lock);
+			empty = (ar->htt.num_pending_tx == 0);
+			spin_unlock_bh(&ar->htt.tx_lock);
+
+			skip = (ar->state == ATH10K_STATE_WEDGED) ||
+			       test_bit(ATH10K_FLAG_CRASH_FLUSH,
+					&ar->dev_flags);
+
+			(empty || skip);
+		}), ATH10K_FLUSH_TIMEOUT_HZ);
+
+	if (time_left == 0 || skip)
+		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %ld\n",
+			    skip, ar->state, time_left);
+}
+
+static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 u32 queues, bool drop)
+{
+	struct ath10k *ar = hw->priv;
 	struct ath10k_vif *arvif = NULL;
+	u8 peer_addr[ETH_ALEN] = {0};
+	u32 bitmap;
 	u32 vid = 0xFFFFFFFF;
+
+	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac flush vdev %d drop %d queues 0x%x\n",
+		   arvif ? arvif->vdev_id : -1, drop, queues);
+
+	mutex_lock(&ar->conf_mutex);
+
+	if (ar->state == ATH10K_STATE_WEDGED)
+		goto skip;
 
 	if (vif) {
 		arvif = (void *)vif->drv_priv;
 		vid = arvif->vdev_id;
 	}
-
-	ath10k_dbg(ar, ATH10K_DBG_MAC, "mac flush vdev %d drop %d queues 0x%x\n",
-		   arvif ? arvif->vdev_id : -1, drop, queues);
-
-	/* mac80211 doesn't care if we really xmit queued frames or not
-	 * we'll collect those frames either way if we stop/delete vdevs
-	 */
-	if (drop && !test_bit(ATH10K_FW_FEATURE_FLUSH_ALL_CT,
-			      ar->running_fw->fw_file.fw_features))
-		return;
-
-	if (ar->state == ATH10K_STATE_WEDGED)
-		return;
 
 	/* NOTE:  As of Aug 10, CT firmware supports flushing a single vdev
 	 * by passing the vdev_id, and leaving peer_addr all zeros.  But the logic
@@ -7949,34 +7969,11 @@ void ath10k_mac_wait_tx_complete(struct ath10k *ar)
 				     ar->running_fw->fw_file.fw_features))
 			goto skip;
 	}
-
-	time_left = wait_event_timeout(ar->htt.empty_tx_wq, ({
-			bool empty;
-
-			spin_lock_bh(&ar->htt.tx_lock);
-			empty = (ar->htt.num_pending_tx == 0);
-			spin_unlock_bh(&ar->htt.tx_lock);
-
-			skip = (ar->state == ATH10K_STATE_WEDGED) ||
-			       test_bit(ATH10K_FLAG_CRASH_FLUSH,
-					&ar->dev_flags);
-
-			(empty || skip);
-		}), ATH10K_FLUSH_TIMEOUT_HZ);
-
-	if (time_left == 0 || skip)
-		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %ld\n",
-			    skip, ar->state, time_left);
-}
-
-static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			 u32 queues, bool drop)
-{
-	struct ath10k *ar = hw->priv;
-	struct ath10k_vif *arvif;
-	u32 bitmap;
-
-	if (drop) {
+	else if (drop) {
+		/* Upstream QCA firmware can handle this I guess...seems weird logic
+		 * though...not paying attention to specific thing to flush?
+		 * --Ben
+		 */
 		if (vif && vif->type == NL80211_IFTYPE_STATION) {
 			bitmap = ~(1 << WMI_MGMT_TID);
 			list_for_each_entry(arvif, &ar->arvifs, list) {
@@ -7986,11 +7983,12 @@ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			}
 			ath10k_htt_flush_tx(&ar->htt);
 		}
-		return;
+		goto skip;
 	}
 
-	mutex_lock(&ar->conf_mutex);
 	ath10k_mac_wait_tx_complete(ar);
+
+skip:
 	mutex_unlock(&ar->conf_mutex);
 }
 
