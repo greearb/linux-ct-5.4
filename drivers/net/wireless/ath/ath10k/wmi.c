@@ -1876,15 +1876,6 @@ static void ath10k_wmi_tx_beacon_nowait(struct ath10k_vif *arvif)
 	bool deliver_cab;
 	int ret;
 
-	/* I saw a kasan warning here, looks like arvif and/or ar might have been
-	 * NULL, add something to catch this if it happens again.
-	 */
-	if ((((unsigned long)(arvif)) < 8000) || (((unsigned long)(ar)) < 8000)) {
-		pr_err("tx-beacon-nowait:  arvif: %p  ar: %p\n", arvif, ar);
-		BUG_ON(((unsigned long)(arvif)) < 8000);
-		BUG_ON(((unsigned long)(ar)) < 8000);
-	}
-
 	spin_lock_bh(&ar->data_lock);
 
 	bcn = arvif->beacon;
