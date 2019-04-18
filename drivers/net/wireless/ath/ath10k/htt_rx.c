@@ -2900,7 +2900,7 @@ static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,
 	msdus = resp->data_tx_completion.msdus;
 	rssi_enabled = ath10k_is_rssi_enable(&ar->hw_params, resp);
 
-	if (resp->data_tx_completion.flag_ack_rssi_filled)
+	if (resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_DATA_RSSI)
 		rssi_enabled = true;
 
 	if (rssi_enabled)
@@ -2974,14 +2974,14 @@ static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,
 			goto do_generic;
 		}
 
-		if (resp->data_tx_completion.flag_tx_rate_filled &&
+		if ((resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_RATE_FILLED) &&
 		    WARN_ON_ONCE(skb->len < ((storage_idx * 3) + sizeof(struct htt_data_tx_completion)))) {
 			ath10k_err(ar, "Invalid length for tx-rates report, skb->len: %d  storage_idx: %d msdu: %d\n",
 				   skb->len, storage_idx, resp->data_tx_completion_ct.num_msdus);
 			goto do_generic;
 		}
 
-		if (resp->data_tx_completion.flag_tx_retries_filled &&
+		if ((resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_RETRIES_FILLED) &&
 		    WARN_ON_ONCE(skb->len < ((storage_idx * 4) + sizeof(struct htt_data_tx_completion)))) {
 			ath10k_err(ar, "Invalid length for tx-retries report, skb->len: %d  storage_idx: %d msdu: %d\n",
 				   skb->len, storage_idx, resp->data_tx_completion_ct.num_msdus);
@@ -2997,12 +2997,12 @@ static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,
 			tx_done.msdu_id = __le16_to_cpu(msdu_id);
 			ack_rssi = resp->data_tx_completion.msdus[storage_idx + i];
 			tx_done.ack_rssi = __le16_to_cpu(ack_rssi);
-			if (resp->data_tx_completion.flag_tx_rate_filled) {
+			if (resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_RATE_FILLED) {
 				rate_info = resp->data_tx_completion.msdus[storage_idx * 2 + i];
 				rate_info = __le16_to_cpu(rate_info);
 				tx_done.tx_rate_code = rate_info >> 8;
 				tx_done.tx_rate_flags = rate_info & 0xFF;
-				if (resp->data_tx_completion.flag_tx_retries_filled) {
+				if (resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_RETRIES_FILLED) {
 					/* NOTE:  It seems that if 'probe' frames in the firmware
 					 * fail, then they will be retried at a lower rate, and because
 					 * the tx rate is different, it is not counted as 'mpdus_failed'

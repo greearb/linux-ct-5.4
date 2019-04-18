@@ -581,6 +581,9 @@ struct htt_mgmt_tx_completion {
 #define HTT_TX_CMPL_FLAG_PA_PRESENT		BIT(2)
 #define HTT_TX_CMPL_FLAG_PPDU_DURATION_PRESENT	BIT(3)
 
+#define HTT_TX_CMPL_FLAG_RETRIES_FILLED		BIT(5)
+#define HTT_TX_CMPL_FLAG_RATE_FILLED		BIT(6)
+
 #define HTT_TX_DATA_RSSI_ENABLE_WCN3990 BIT(3)
 #define HTT_TX_DATA_APPEND_RETRIES BIT(0)
 #define HTT_TX_DATA_APPEND_TIMESTAMP BIT(1)
@@ -987,11 +990,7 @@ struct htt_data_tx_completion {
 		} __packed;
 	} __packed;
 	u8 num_msdus;
-	u8 flag_ack_rssi_filled:1, /* For 10.4 firmware */
-	   flag_reserved:4,
-	   flag_tx_retries_filled:1, /* CT firmware only currently */
-	   flag_tx_rate_filled:1, /* CT firmware only currently */
-	   flag_reserved2:1;
+	u8 flags2;
 	__le16 msdus[0]; /* variable length based on %num_msdus */
 } __packed;
 
