@@ -694,11 +694,7 @@ static int pfifo_fast_try_enqueue(struct sk_buff *skb, struct Qdisc* qdisc, stru
 		}
 	}
 
-	qdisc_qstats_atomic_qlen_inc(qdisc);
-	/* Note: skb can not be used after skb_array_produce(),
-	 * so we better not use qdisc_qstats_cpu_backlog_inc()
-	 */
-	this_cpu_add(qdisc->cpu_qstats->backlog, pkt_len);
+	qdisc_update_stats_at_enqueue(qdisc, pkt_len);
 	return NET_XMIT_SUCCESS;
 }
 

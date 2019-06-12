@@ -3867,7 +3867,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 	 * Extended Key ID action NL80211_KEY_SET_TX.
 	 */
 	if (!key.def && !key.defmgmt &&
-	    !(key.p.mode == NL80211_KEY_SET_TX))
+	    !(key.p.mode == NL80211_KEY_SET_TX)) {
 		pr_info("set-key: tried to set non-default key.\n");
 		return -EINVAL;
 	}
@@ -4350,6 +4350,8 @@ static int nl80211_parse_tx_bitrate_mask(struct genl_info *info,
 		if (!sband) {
 			/* pr_err("sband[%d] is null\n", band); */
 			return -EINVAL;
+		}
+
 		err = nla_parse_nested_deprecated(tb, NL80211_TXRATE_MAX,
 						  tx_rates,
 						  nl80211_txattr_policy,
