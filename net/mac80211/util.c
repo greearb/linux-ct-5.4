@@ -4093,7 +4093,7 @@ int ieee80211_check_combinations(struct ieee80211_sub_if_data *sdata,
 
 	/* Always allow software iftypes */
 	if (cfg80211_iftype_allowed(local->hw.wiphy, iftype, 0, 1)) {
-		if (radar_detect)
+		if (radar_detect) {
 			sdata_info(sdata, "comb-check: failed software-type + radar-detect\n");
 			return -EINVAL;
 		}
