@@ -9293,6 +9293,15 @@ static void ath10k_sta_statistics(struct ieee80211_hw *hw,
 	sinfo->rx_duration = arsta->rx_duration;
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_RX_DURATION);
 
+	/* CT firmware has it's own per-packet tx status logic, don't bother using
+	 * this peer-stats stuff.
+	 */
+	if ((test_bit(ATH10K_FW_FEATURE_TXRATE_CT,
+		      ar->running_fw->fw_file.fw_features)) ||
+	    (test_bit(ATH10K_FW_FEATURE_TXRATE2_CT,
+		      ar->running_fw->fw_file.fw_features)))
+		return;
+
 	if (!arsta->txrate.legacy && !arsta->txrate.nss)
 		return;
 
