@@ -1532,7 +1532,9 @@ static struct aead_alg aesni_aeads[] = { {
 		.cra_alignmask		= AESNI_ALIGN - 1,
 		.cra_module		= THIS_MODULE,
 	},
-}, {
+}};
+
+static struct aead_alg ccm_aesni_aeads[] = { {
 	.setkey		= __ccm_setkey,
 	.setauthsize	= __ccm_setauthsize,
 	.encrypt	= __ccm_encrypt,
@@ -1571,8 +1573,10 @@ static struct aead_alg aesni_aeads[] = { {
 		.cra_module		= THIS_MODULE,
 	},
 }};
+
 #else
 static struct aead_alg aesni_aeads[0];
+static struct aead_alg ccm_aesni_aeads[0];
 #endif
 
 static struct simd_aead_alg *aesni_simd_aeads[ARRAY_SIZE(aesni_aeads)];
@@ -1631,7 +1635,14 @@ static int __init aesni_init(void)
 	if (err)
 		goto unregister_skciphers;
 
+	err = crypto_register_aeads(ccm_aesni_aeads, ARRAY_SIZE(ccm_aesni_aeads));
+	if (err)
+		goto unregister_simdaeds;
+
 	return 0;
+
+unregister_simdaeds:
+	simd_unregister_aeads(aesni_aeads, ARRAY_SIZE(aesni_aeads), aesni_simd_aeads);
 
 unregister_skciphers:
 	simd_unregister_skciphers(aesni_skciphers, ARRAY_SIZE(aesni_skciphers),
