@@ -9482,6 +9482,8 @@ struct ath10k *ath10k_mac_create(size_t priv_size)
 		return NULL;
 	}
 
+	pr_info("ath10k_mac_create, hw: %x  hw-priv: 0x%x  priv_size: %lu\n",
+		hw, hw->priv, (unsigned long)(priv_size));
 	ar = hw->priv;
 	ar->hw = hw;
 	ar->ops = ops;
