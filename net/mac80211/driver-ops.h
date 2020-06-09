@@ -22,8 +22,10 @@ static inline bool check_sdata_in_driver(struct ieee80211_sub_if_data *sdata)
 		}
 		else {
 			/* just print error instead of full WARN spam */
-			sdata_err(sdata, "Failed check-sdata-in-driver check, flags: 0x%x\n",
-				  sdata->flags);
+			if (net_ratelimit()) {
+				sdata_err(sdata, "Failed check-sdata-in-driver check, flags: 0x%x\n",
+					  sdata->flags);
+			}
 		}
 		return false;
 	}
