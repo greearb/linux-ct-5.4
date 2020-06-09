@@ -22,9 +22,13 @@ static inline bool check_sdata_in_driver(struct ieee80211_sub_if_data *sdata)
 		}
 		else {
 			/* just print error instead of full WARN spam */
-			if (net_ratelimit()) {
-				sdata_err(sdata, "Failed check-sdata-in-driver check, flags: 0x%x\n",
-					  sdata->flags);
+			static unsigned long jif = 0;
+			static unsigned long count = 0;
+			count++;
+			if (time_after(jiffies, jif)) {
+				sdata_err(sdata, "Failed check-sdata-in-driver check, flags: 0x%x count: %lu\n",
+					  sdata->flags, count);
+				jif = jiffies + HZ;
 			}
 		}
 		return false;
