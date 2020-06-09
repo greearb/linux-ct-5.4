@@ -8,7 +8,7 @@
  * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,8 +73,15 @@
 #include "iwl-config.h"
 #include "fw/img.h"
 #include "iwl-op-mode.h"
+#include <linux/firmware.h>
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#include "iwl-dbg-cfg.h"
+#endif
 #include "fw/api/cmdhdr.h"
 #include "fw/api/txq.h"
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#include "fw/testmode.h"
+#endif
 #include "fw/api/dbg-tlv.h"
 #include "iwl-dbg-tlv.h"
 
@@ -111,6 +118,12 @@
  *
  *	6) Eventually, the free function will be called.
  */
+
+#ifndef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#define IWL_TRANS_FW_DBG_DOMAIN(trans)	IWL_FW_INI_DOMAIN_ALWAYS_ON
+#else
+#define IWL_TRANS_FW_DBG_DOMAIN(trans)	((trans)->dbg_cfg.FW_DBG_DOMAIN)
+#endif
 
 #define FH_RSCSR_FRAME_SIZE_MSK		0x00003FFF	/* bits 0-13 */
 #define FH_RSCSR_FRAME_INVALID		0x55550000
@@ -314,6 +327,7 @@ static inline void iwl_free_rxb(struct iwl_rx_cmd_buffer *r)
 #define IWL_MGMT_TID		15
 #define IWL_FRAME_LIMIT	64
 #define IWL_MAX_RX_HW_QUEUES	16
+#define IWL_9000_MAX_RX_HW_QUEUES	6
 
 /**
  * enum iwl_wowlan_status - WoWLAN image/device status
@@ -337,6 +351,7 @@ enum iwl_d3_status {
  * @STATUS_TRANS_GOING_IDLE: shutting down the trans, only special commands
  *	are sent
  * @STATUS_TRANS_IDLE: the trans is idle - general commands are not to be sent
+ * @STATUS_TA_ACTIVE: target access is in progress
  * @STATUS_TRANS_DEAD: trans is dead - avoid any read/write operation
  */
 enum iwl_trans_status {
@@ -349,6 +364,7 @@ enum iwl_trans_status {
 	STATUS_FW_ERROR,
 	STATUS_TRANS_GOING_IDLE,
 	STATUS_TRANS_IDLE,
+	STATUS_TA_ACTIVE,
 	STATUS_TRANS_DEAD,
 };
 
@@ -367,6 +383,24 @@ iwl_trans_get_rb_size_order(enum iwl_amsdu_size rb_size)
 	default:
 		WARN_ON(1);
 		return -1;
+	}
+}
+
+static inline int
+iwl_trans_get_rb_size(enum iwl_amsdu_size rb_size)
+{
+	switch (rb_size) {
+	case IWL_AMSDU_2K:
+		return 2 * 1024;
+	case IWL_AMSDU_4K:
+		return 4 * 1024;
+	case IWL_AMSDU_8K:
+		return 8 * 1024;
+	case IWL_AMSDU_12K:
+		return 12 * 1024;
+	default:
+		WARN_ON(1);
+		return 0;
 	}
 }
 
@@ -524,6 +558,8 @@ struct iwl_trans_rxq_dma_data {
  * @read_mem: read device's SRAM in DWORD
  * @write_mem: write device's SRAM in DWORD. If %buf is %NULL, then the memory
  *	will be zeroed.
+ * @read_config32: read a u32 value from the device's config space at
+ *	the given offset.
  * @configure: configure parameters required by the transport layer from
  *	the op_mode. May be called several times before start_fw, can't be
  *	called after that.
@@ -544,12 +580,17 @@ struct iwl_trans_ops {
 
 	int (*start_hw)(struct iwl_trans *iwl_trans);
 	void (*op_mode_leave)(struct iwl_trans *iwl_trans);
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	int (*start_fw_dbg)(struct iwl_trans *trans, const struct fw_img *fw,
+			    bool run_in_rfkill, u32 fw_dbg_flags);
+	int (*test_mode_cmd)(struct iwl_trans *trans, bool enable);
+#endif
 	int (*start_fw)(struct iwl_trans *trans, const struct fw_img *fw,
 			bool run_in_rfkill);
 	void (*fw_alive)(struct iwl_trans *trans, u32 scd_addr);
 	void (*stop_device)(struct iwl_trans *trans);
 
-	int (*d3_suspend)(struct iwl_trans *trans, bool test, bool reset);
+	void (*d3_suspend)(struct iwl_trans *trans, bool test, bool reset);
 	int (*d3_resume)(struct iwl_trans *trans, enum iwl_d3_status *status,
 			 bool test, bool reset);
 
@@ -594,6 +635,7 @@ struct iwl_trans_ops {
 			void *buf, int dwords);
 	int (*write_mem)(struct iwl_trans *trans, u32 addr,
 			 const void *buf, int dwords);
+	int (*read_config32)(struct iwl_trans *trans, u32 ofs, u32 *val);
 	void (*configure)(struct iwl_trans *trans,
 			  const struct iwl_trans_config *trans_cfg);
 	void (*set_pmi)(struct iwl_trans *trans, bool state);
@@ -676,7 +718,7 @@ enum iwl_ini_cfg_state {
 };
 
 /* Max time to wait for nmi interrupt */
-#define IWL_TRANS_NMI_TIMEOUT (HZ / 4)
+#define IWL_TRANS_NMI_TIMEOUT (HZ / 4 * CPTCFG_IWL_TIMEOUT_FACTOR)
 
 /**
  * struct iwl_dram_data
@@ -688,6 +730,16 @@ struct iwl_dram_data {
 	dma_addr_t physical;
 	void *block;
 	int size;
+};
+
+/**
+ * struct iwl_fw_mon - fw monitor per allocation id
+ * @num_frags: number of fragments
+ * @frags: an array of DRAM buffer fragments
+ */
+struct iwl_fw_mon {
+	u32 num_frags;
+	struct iwl_dram_data *frags;
 };
 
 /**
@@ -718,10 +770,17 @@ struct iwl_self_init_dram {
  *	pointers was recevied via TLV. uses enum &iwl_error_event_table_status
  * @internal_ini_cfg: internal debug cfg state. Uses &enum iwl_ini_cfg_state
  * @external_ini_cfg: external debug cfg state. Uses &enum iwl_ini_cfg_state
- * @num_blocks: number of blocks in fw_mon
- * @fw_mon: address of the buffers for firmware monitor
+ * @fw_mon_cfg: debug buffer allocation configuration
+ * @fw_mon_ini: DRAM buffer fragments per allocation id
+ * @fw_mon: DRAM buffer for firmware monitor
  * @hw_error: equals true if hw error interrupt was received from the FW
  * @ini_dest: debug monitor destination uses &enum iwl_fw_ini_buffer_location
+ * @active_regions: active regions
+ * @debug_info_tlv_list: list of debug info TLVs
+ * @time_point: array of debug time points
+ * @periodic_trig_list: periodic triggers list
+ * @domains_bitmap: bitmap of active domains other than
+ *	&IWL_FW_INI_DOMAIN_ALWAYS_ON
  */
 struct iwl_trans_debug {
 	u8 n_dest_reg;
@@ -738,11 +797,21 @@ struct iwl_trans_debug {
 	enum iwl_ini_cfg_state internal_ini_cfg;
 	enum iwl_ini_cfg_state external_ini_cfg;
 
-	int num_blocks;
-	struct iwl_dram_data fw_mon[IWL_FW_INI_ALLOCATION_NUM];
+	struct iwl_fw_ini_allocation_tlv fw_mon_cfg[IWL_FW_INI_ALLOCATION_NUM];
+	struct iwl_fw_mon fw_mon_ini[IWL_FW_INI_ALLOCATION_NUM];
+
+	struct iwl_dram_data fw_mon;
 
 	bool hw_error;
 	enum iwl_fw_ini_buffer_location ini_dest;
+
+	struct iwl_ucode_tlv *active_regions[IWL_FW_INI_MAX_REGION_ID];
+	struct list_head debug_info_tlv_list;
+	struct iwl_dbg_tlv_time_point_data
+		time_point[IWL_FW_INI_TIME_POINT_NUM];
+	struct list_head periodic_trig_list;
+
+	u32 domains_bitmap;
 };
 
 /**
@@ -785,6 +854,7 @@ struct iwl_trans {
 	const struct iwl_cfg_trans_params *trans_cfg;
 	const struct iwl_cfg *cfg;
 	struct iwl_drv *drv;
+	struct iwl_tm_gnl_dev *tmdev;
 	enum iwl_trans_state state;
 	unsigned long status;
 
@@ -819,10 +889,19 @@ struct iwl_trans {
 	struct lockdep_map sync_cmd_lockdep_map;
 #endif
 
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	struct iwl_dbg_cfg dbg_cfg;
+#endif
 	struct iwl_trans_debug dbg;
 	struct iwl_self_init_dram init_dram;
 
 	enum iwl_plat_pm_mode system_pm_mode;
+
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	struct iwl_testmode testmode;
+#endif
+
+	const char *name;
 
 	/* pointer to trans specific struct */
 	/*Ensure that this pointer will always be aligned to sizeof pointer */
@@ -881,6 +960,31 @@ static inline int iwl_trans_start_fw(struct iwl_trans *trans,
 	return trans->ops->start_fw(trans, fw, run_in_rfkill);
 }
 
+#if IS_ENABLED(CPTCFG_IWLXVT)
+enum iwl_xvt_dbg_flags {
+	IWL_XVT_DBG_ADC_SAMP_TEST = BIT(0),
+	IWL_XVT_DBG_ADC_SAMP_SYNC_RX = BIT(1),
+};
+
+static inline int iwl_trans_start_fw_dbg(struct iwl_trans *trans,
+					 const struct fw_img *fw,
+					 bool run_in_rfkill,
+					 u32 dbg_flags)
+{
+	might_sleep();
+
+	if (WARN_ON_ONCE(!trans->ops->start_fw_dbg && dbg_flags))
+		return -ENOTSUPP;
+
+	clear_bit(STATUS_FW_ERROR, &trans->status);
+	if (trans->ops->start_fw_dbg)
+		return trans->ops->start_fw_dbg(trans, fw, run_in_rfkill,
+						dbg_flags);
+
+	return trans->ops->start_fw(trans, fw, run_in_rfkill);
+}
+#endif
+
 static inline void iwl_trans_stop_device(struct iwl_trans *trans)
 {
 	might_sleep();
@@ -890,14 +994,12 @@ static inline void iwl_trans_stop_device(struct iwl_trans *trans)
 	trans->state = IWL_TRANS_NO_FW;
 }
 
-static inline int iwl_trans_d3_suspend(struct iwl_trans *trans, bool test,
-				       bool reset)
+static inline void iwl_trans_d3_suspend(struct iwl_trans *trans, bool test,
+					bool reset)
 {
 	might_sleep();
-	if (!trans->ops->d3_suspend)
-		return 0;
-
-	return trans->ops->d3_suspend(trans, test, reset);
+	if (trans->ops->d3_suspend)
+		trans->ops->d3_suspend(trans, test, reset);
 }
 
 static inline int iwl_trans_d3_resume(struct iwl_trans *trans,
@@ -1134,6 +1236,15 @@ static inline int iwl_trans_wait_txq_empty(struct iwl_trans *trans, int queue)
 	return trans->ops->wait_txq_empty(trans, queue);
 }
 
+#if IS_ENABLED(CPTCFG_IWLXVT)
+static inline int iwl_trans_test_mode_cmd(struct iwl_trans *trans, bool enable)
+{
+	if (trans->ops->test_mode_cmd)
+		return trans->ops->test_mode_cmd(trans, enable);
+	return -ENOTSUPP;
+}
+#endif
+
 static inline void iwl_trans_write8(struct iwl_trans *trans, u32 ofs, u8 val)
 {
 	trans->ops->write8(trans, ofs, val);
@@ -1234,6 +1345,11 @@ static inline void iwl_trans_fw_error(struct iwl_trans *trans)
 		iwl_op_mode_nic_error(trans->op_mode);
 }
 
+static inline bool iwl_trans_fw_running(struct iwl_trans *trans)
+{
+	return trans->state == IWL_TRANS_FW_ALIVE;
+}
+
 static inline void iwl_trans_sync_nmi(struct iwl_trans *trans)
 {
 	if (trans->ops->sync_nmi)
@@ -1259,7 +1375,27 @@ void iwl_trans_free(struct iwl_trans *trans);
 /*****************************************************
 * driver (transport) register/unregister functions
 ******************************************************/
+/* PCI */
+#ifdef CONFIG_PCI
 int __must_check iwl_pci_register_driver(void);
 void iwl_pci_unregister_driver(void);
+#else
+static inline int __must_check iwl_pci_register_driver(void)
+{
+	return 0;
+}
 
+static inline void iwl_pci_unregister_driver(void)
+{
+}
+#endif /* CONFIG_PCI */
+
+static inline int __must_check iwl_virtio_register_driver(void)
+{
+	return 0;
+}
+
+static inline void iwl_virtio_unregister_driver(void)
+{
+}
 #endif /* __iwl_trans_h__ */

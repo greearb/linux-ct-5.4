@@ -5,11 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2008 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 Intel Corporation
- * Copyright(c) 2019 Intel Corporation
+ * Copyright(c) 2008 - 2014, 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -29,11 +27,9 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 Intel Corporation
- * Copyright(c) 2019 Intel Corporation
+ * Copyright(c) 2008 - 2014, 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,7 +89,7 @@ struct iwl_ucode_header {
 	} u;
 };
 
-#define IWL_UCODE_INI_TLV_GROUP	0x1000000
+#define IWL_UCODE_TLV_DEBUG_BASE	0x1000005
 
 /*
  * new TLV uCode file layout
@@ -146,12 +142,13 @@ enum iwl_ucode_tlv_type {
 	IWL_UCODE_TLV_FW_GSCAN_CAPA	= 50,
 	IWL_UCODE_TLV_FW_MEM_SEG	= 51,
 	IWL_UCODE_TLV_IML		= 52,
+	IWL_UCODE_TLV_FW_FMAC_API_VERSION	= 53,
 	IWL_UCODE_TLV_UMAC_DEBUG_ADDRS	= 54,
 	IWL_UCODE_TLV_LMAC_DEBUG_ADDRS	= 55,
 	IWL_UCODE_TLV_FW_RECOVERY_INFO	= 57,
-	IWL_UCODE_TLV_FW_FSEQ_VERSION	= 60,
+	IWL_UCODE_TLV_FW_FMAC_RECOVERY_INFO	= 59,
+	IWL_UCODE_TLV_FW_FSEQ_VERSION		= 60,
 
-	IWL_UCODE_TLV_DEBUG_BASE		= IWL_UCODE_INI_TLV_GROUP,
 	IWL_UCODE_TLV_TYPE_DEBUG_INFO		= IWL_UCODE_TLV_DEBUG_BASE + 0,
 	IWL_UCODE_TLV_TYPE_BUFFER_ALLOCATION	= IWL_UCODE_TLV_DEBUG_BASE + 1,
 	IWL_UCODE_TLV_TYPE_HCMD			= IWL_UCODE_TLV_DEBUG_BASE + 2,
@@ -169,6 +166,7 @@ struct iwl_ucode_tlv {
 	u8 data[0];
 };
 
+#define IWL_TLV_FW_DBG_MAGIC		0xb5221389
 #define IWL_TLV_UCODE_MAGIC		0x0a4c5749
 #define FW_VER_HUMAN_READABLE_SZ	64
 
@@ -270,6 +268,8 @@ typedef unsigned int __bitwise iwl_ucode_tlv_api_t;
  *	deprecated.
  * @IWL_UCODE_TLV_API_ADAPTIVE_DWELL_V2: This ucode supports version 8
  *	of scan request: SCAN_REQUEST_CMD_UMAC_API_S_VER_8
+ * @IWL_UCODE_TLV_API_NAN_NOTIF_V2: This ucode supports version 2 of
+ *      the NAN discovery notification.
  * @IWL_UCODE_TLV_API_FRAG_EBS: This ucode supports fragmented EBS
  * @IWL_UCODE_TLV_API_REDUCE_TX_POWER: This ucode supports v5 of
  *	the REDUCE_TX_POWER_CMD.
@@ -312,6 +312,7 @@ enum iwl_ucode_tlv_api {
 	IWL_UCODE_TLV_API_QUOTA_LOW_LATENCY	= (__force iwl_ucode_tlv_api_t)38,
 	IWL_UCODE_TLV_API_DEPRECATE_TTAK	= (__force iwl_ucode_tlv_api_t)41,
 	IWL_UCODE_TLV_API_ADAPTIVE_DWELL_V2	= (__force iwl_ucode_tlv_api_t)42,
+	IWL_UCODE_TLV_API_NAN_NOTIF_V2		= (__force iwl_ucode_tlv_api_t)43,
 	IWL_UCODE_TLV_API_FRAG_EBS		= (__force iwl_ucode_tlv_api_t)44,
 	IWL_UCODE_TLV_API_REDUCE_TX_POWER	= (__force iwl_ucode_tlv_api_t)45,
 	IWL_UCODE_TLV_API_SHORT_BEACON_NOTIF	= (__force iwl_ucode_tlv_api_t)46,
@@ -326,6 +327,8 @@ enum iwl_ucode_tlv_api {
 	IWL_UCODE_TLV_API_REDUCED_SCAN_CONFIG   = (__force iwl_ucode_tlv_api_t)56,
 	IWL_UCODE_TLV_API_ADWELL_HB_DEF_N_AP	= (__force iwl_ucode_tlv_api_t)57,
 	IWL_UCODE_TLV_API_SCAN_EXT_CHAN_VER	= (__force iwl_ucode_tlv_api_t)58,
+	IWL_UCODE_TLV_API_BAND_IN_RX_DATA	= (__force iwl_ucode_tlv_api_t)59,
+
 
 	NUM_IWL_UCODE_TLV_API
 #ifdef __CHECKER__
@@ -357,6 +360,7 @@ typedef unsigned int __bitwise iwl_ucode_tlv_capa_t;
  * @IWL_UCODE_TLV_CAPA_CNSLDTD_D3_D0_IMG: Consolidated D3-D0 image
  * @IWL_UCODE_TLV_CAPA_HOTSPOT_SUPPORT: supports Hot Spot Command
  * @IWL_UCODE_TLV_CAPA_DC2DC_SUPPORT: supports DC2DC Command
+ * @IWL_UCODE_TLV_CAPA_2G_COEX_SUPPORT: supports 2G coex Command
  * @IWL_UCODE_TLV_CAPA_CSUM_SUPPORT: supports TCP Checksum Offload
  * @IWL_UCODE_TLV_CAPA_RADIO_BEACON_STATS: support radio and beacon statistics
  * @IWL_UCODE_TLV_CAPA_P2P_SCM_UAPSD: supports U-APSD on p2p interface when it
@@ -368,6 +372,11 @@ typedef unsigned int __bitwise iwl_ucode_tlv_capa_t;
  *	is supported.
  * @IWL_UCODE_TLV_CAPA_BT_COEX_RRC: supports BT Coex RRC
  * @IWL_UCODE_TLV_CAPA_GSCAN_SUPPORT: supports gscan (no longer used)
+ * @IWL_UCODE_TLV_CAPA_NAN_SUPPORT: supports NAN
+ * @IWL_UCODE_TLV_CAPA_UMAC_UPLOAD: supports upload mode in umac (1=supported,
+ *	0=no support)
+ * @IWL_UCODE_TLV_CAPA_SOC_LATENCY_SUPPORT: the firmware supports setting
+ *	stabilization latency for SoCs.
  * @IWL_UCODE_TLV_CAPA_STA_PM_NOTIF: firmware will send STA PM notification
  * @IWL_UCODE_TLV_CAPA_TLC_OFFLOAD: firmware implements rate scaling algorithm
  * @IWL_UCODE_TLV_CAPA_DYNAMIC_QUOTA: firmware implements quota related
@@ -396,18 +405,29 @@ typedef unsigned int __bitwise iwl_ucode_tlv_capa_t;
  * @IWL_UCODE_TLV_CAPA_EXTEND_SHARED_MEM_CFG: support getting more shared
  *	memory addresses from the firmware.
  * @IWL_UCODE_TLV_CAPA_LQM_SUPPORT: supports Link Quality Measurement
+ * @IWL_UCODE_TLV_CAPA_LMAC_UPLOAD: supports upload mode in lmac (1=supported,
+ *	0=no support)
+#ifdef CPTCFG_IWLMVM_AX_SOFTAP_TESTMODE
+ * @IWL_UCODE_TLV_CAPA_AX_SAP_TM_V2: support 11ax softap testmode APIs version 2
+#endif
  * @IWL_UCODE_TLV_CAPA_TX_POWER_ACK: reduced TX power API has larger
  *	command size (command version 4) that supports toggling ACK TX
  *	power reduction.
+#ifdef CPTCFG_IWLMVM_AX_SOFTAP_TESTMODE
+ * @IWL_UCODE_TLV_CAPA_AX_SAP_TM: support 11ax softap testmode APIs
+#endif
  * @IWL_UCODE_TLV_CAPA_D3_DEBUG: supports debug recording during D3
  * @IWL_UCODE_TLV_CAPA_MCC_UPDATE_11AX_SUPPORT: MCC response support 11ax
  *	capability.
  * @IWL_UCODE_TLV_CAPA_CSI_REPORTING: firmware is capable of being configured
  *	to report the CSI information with (certain) RX frames
+ * @IWL_UCODE_TLV_CAPA_CSI_REPORTING_V2: firmware is capable of being configured
+ *	to report the CSI information with (certain) RX frames, with the new CSI
+ *	filter API
  * @IWL_UCODE_TLV_CAPA_FTM_CALIBRATED: has FTM calibrated and thus supports both
  *	initiator and responder
- *
  * @IWL_UCODE_TLV_CAPA_MLME_OFFLOAD: supports MLME offload
+ * @IWL_UCODE_TLV_CAPA_PROTECTED_TWT: Supports protection of TWT action frames
  *
  * @NUM_IWL_UCODE_TLV_CAPA: number of bits used
  */
@@ -427,6 +447,7 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_CNSLDTD_D3_D0_IMG		= (__force iwl_ucode_tlv_capa_t)17,
 	IWL_UCODE_TLV_CAPA_HOTSPOT_SUPPORT		= (__force iwl_ucode_tlv_capa_t)18,
 	IWL_UCODE_TLV_CAPA_DC2DC_CONFIG_SUPPORT		= (__force iwl_ucode_tlv_capa_t)19,
+	IWL_UCODE_TLV_CAPA_2G_COEX_SUPPORT		= (__force iwl_ucode_tlv_capa_t)20,
 	IWL_UCODE_TLV_CAPA_CSUM_SUPPORT			= (__force iwl_ucode_tlv_capa_t)21,
 	IWL_UCODE_TLV_CAPA_RADIO_BEACON_STATS		= (__force iwl_ucode_tlv_capa_t)22,
 	IWL_UCODE_TLV_CAPA_P2P_SCM_UAPSD		= (__force iwl_ucode_tlv_capa_t)26,
@@ -436,6 +457,9 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_GSCAN_SUPPORT		= (__force iwl_ucode_tlv_capa_t)31,
 
 	/* set 1 */
+	IWL_UCODE_TLV_CAPA_NAN_SUPPORT			= (__force iwl_ucode_tlv_capa_t)34,
+	IWL_UCODE_TLV_CAPA_UMAC_UPLOAD			= (__force iwl_ucode_tlv_capa_t)35,
+	IWL_UCODE_TLV_CAPA_SOC_LATENCY_SUPPORT		= (__force iwl_ucode_tlv_capa_t)37,
 	IWL_UCODE_TLV_CAPA_STA_PM_NOTIF			= (__force iwl_ucode_tlv_capa_t)38,
 	IWL_UCODE_TLV_CAPA_BINDING_CDB_SUPPORT		= (__force iwl_ucode_tlv_capa_t)39,
 	IWL_UCODE_TLV_CAPA_CDB_SUPPORT			= (__force iwl_ucode_tlv_capa_t)40,
@@ -449,6 +473,9 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_CS_MODIFY			= (__force iwl_ucode_tlv_capa_t)49,
 	IWL_UCODE_TLV_CAPA_SET_LTR_GEN2			= (__force iwl_ucode_tlv_capa_t)50,
 	IWL_UCODE_TLV_CAPA_SET_PPAG			= (__force iwl_ucode_tlv_capa_t)52,
+	IWL_UCODE_TLV_CAPA_TAS_CFG			= (__force iwl_ucode_tlv_capa_t)53,
+	IWL_UCODE_TLV_CAPA_SESSION_PROT_CMD		= (__force iwl_ucode_tlv_capa_t)54,
+	IWL_UCODE_TLV_CAPA_PROTECTED_TWT		= (__force iwl_ucode_tlv_capa_t)56,
 
 	/* set 2 */
 	IWL_UCODE_TLV_CAPA_EXTENDED_DTS_MEASURE		= (__force iwl_ucode_tlv_capa_t)64,
@@ -463,6 +490,7 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_TEMP_THS_REPORT_SUPPORT	= (__force iwl_ucode_tlv_capa_t)75,
 	IWL_UCODE_TLV_CAPA_CTDP_SUPPORT			= (__force iwl_ucode_tlv_capa_t)76,
 	IWL_UCODE_TLV_CAPA_USNIFFER_UNIFIED		= (__force iwl_ucode_tlv_capa_t)77,
+	IWL_UCODE_TLV_CAPA_LMAC_UPLOAD			= (__force iwl_ucode_tlv_capa_t)79,
 	IWL_UCODE_TLV_CAPA_EXTEND_SHARED_MEM_CFG	= (__force iwl_ucode_tlv_capa_t)80,
 	IWL_UCODE_TLV_CAPA_LQM_SUPPORT			= (__force iwl_ucode_tlv_capa_t)81,
 	IWL_UCODE_TLV_CAPA_TX_POWER_ACK			= (__force iwl_ucode_tlv_capa_t)84,
@@ -470,6 +498,7 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_LED_CMD_SUPPORT		= (__force iwl_ucode_tlv_capa_t)88,
 	IWL_UCODE_TLV_CAPA_MCC_UPDATE_11AX_SUPPORT	= (__force iwl_ucode_tlv_capa_t)89,
 	IWL_UCODE_TLV_CAPA_CSI_REPORTING		= (__force iwl_ucode_tlv_capa_t)90,
+	IWL_UCODE_TLV_CAPA_CSI_REPORTING_V2		= (__force iwl_ucode_tlv_capa_t)91,
 	IWL_UCODE_TLV_CAPA_DBG_SUSPEND_RESUME_CMD_SUPP	= (__force iwl_ucode_tlv_capa_t)92,
 	IWL_UCODE_TLV_CAPA_DBG_BUF_ALLOC_CMD_SUPP	= (__force iwl_ucode_tlv_capa_t)93,
 
@@ -711,6 +740,7 @@ enum iwl_fw_dbg_trigger_flags {
  * @IWL_FW_DBG_CONF_VIF_P2P_CLIENT: P2P Client mode
  * @IWL_FW_DBG_CONF_VIF_P2P_GO: P2P GO mode
  * @IWL_FW_DBG_CONF_VIF_P2P_DEVICE: P2P device
+ * @IWL_FW_DBG_CONF_VIF_NAN: NAN device
  */
 enum iwl_fw_dbg_trigger_vif_type {
 	IWL_FW_DBG_CONF_VIF_ANY = NL80211_IFTYPE_UNSPECIFIED,
@@ -720,6 +750,7 @@ enum iwl_fw_dbg_trigger_vif_type {
 	IWL_FW_DBG_CONF_VIF_P2P_CLIENT = NL80211_IFTYPE_P2P_CLIENT,
 	IWL_FW_DBG_CONF_VIF_P2P_GO = NL80211_IFTYPE_P2P_GO,
 	IWL_FW_DBG_CONF_VIF_P2P_DEVICE = NL80211_IFTYPE_P2P_DEVICE,
+	IWL_FW_DBG_CONF_VIF_NAN = NL80211_IFTYPE_NAN,
 };
 
 /**
@@ -914,6 +945,24 @@ struct iwl_fw_dbg_trigger_ba {
 	__le16 tx_bar;
 	__le16 frame_timeout;
 } __packed;
+
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+/**
+ * struct iwl_fw_dbg_trigger_tx_latency - configures tx latency related trigger
+ * @thrshold: the wanted threshold.
+ * @tid_bitmap: the tid to apply the threshold on
+ * @mode: recording mode (Internal buffer or continues recording)
+ * @window: the size of the window before collecting.
+ * @reserved: reserved.
+ */
+struct iwl_fw_dbg_trigger_tx_latency {
+	__le32 thrshold;
+	__le16 tid_bitmap;
+	__le16 mode;
+	__le32 window;
+	__le32 reserved[4];
+} __packed;
+#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
 
 /**
  * struct iwl_fw_dbg_trigger_tdls - configures trigger for TDLS events.

@@ -8,6 +8,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
+ * Copyright (C) 2018 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -30,6 +31,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
+ * Copyright (C) 2018 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,7 +73,7 @@ struct iwl_mvm_quota_iterator_data {
 	int n_interfaces[MAX_BINDINGS];
 	int colors[MAX_BINDINGS];
 	int low_latency[MAX_BINDINGS];
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	int dbgfs_min[MAX_BINDINGS];
 #endif
 	int n_low_latency_bindings;
@@ -116,6 +118,7 @@ static void iwl_mvm_quota_iterator(void *_data, u8 *mac,
 			break;
 		return;
 	case NL80211_IFTYPE_P2P_DEVICE:
+	case NL80211_IFTYPE_NAN:
 		return;
 	default:
 		WARN_ON_ONCE(1);
@@ -129,7 +132,7 @@ static void iwl_mvm_quota_iterator(void *_data, u8 *mac,
 
 	data->n_interfaces[id]++;
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	if (mvmvif->dbgfs_quota_min)
 		data->dbgfs_min[id] = max(data->dbgfs_min[id],
 					  mvmvif->dbgfs_quota_min);
@@ -141,10 +144,43 @@ static void iwl_mvm_quota_iterator(void *_data, u8 *mac,
 	}
 }
 
+#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+/*
+ * Zero quota for P2P client MAC as part of a WA to pass P2P OPPPS certification
+ * test. Refer to IWLMVM_P2P_OPPPS_TEST_WA description in Kconfig.noupstream for
+ * details.
+ */
+static void iwl_mvm_adjust_quota_for_p2p_wa(struct iwl_mvm *mvm,
+					    struct iwl_time_quota_cmd *cmd)
+{
+	struct iwl_time_quota_data *quota;
+	int i, phy_id = -1;
+
+	if (!mvm->p2p_opps_test_wa_vif ||
+	    !mvm->p2p_opps_test_wa_vif->phy_ctxt)
+		return;
+
+	phy_id = mvm->p2p_opps_test_wa_vif->phy_ctxt->id;
+	for (i = 0; i < MAX_BINDINGS; i++) {
+		u32 id;
+		u32 id_n_c;
+
+		quota = iwl_mvm_quota_cmd_get_quota(mvm, cmd, i);
+		id_n_c = le32_to_cpu(quota->id_and_color);
+		id = (id_n_c & FW_CTXT_ID_MSK) >> FW_CTXT_ID_POS;
+
+		if (id != phy_id)
+			continue;
+
+		quota->quota = 0;
+	}
+}
+#endif
+
 static void iwl_mvm_adjust_quota_for_noa(struct iwl_mvm *mvm,
 					 struct iwl_time_quota_cmd *cmd)
 {
-#ifdef CONFIG_NL80211_TESTMODE
+#ifdef CPTCFG_NL80211_TESTMODE
 	struct iwl_mvm_vif *mvmvif;
 	int i, phy_id = -1, beacon_int = 0;
 
@@ -276,7 +312,7 @@ int iwl_mvm_update_quotas(struct iwl_mvm *mvm,
 
 		if (data.n_interfaces[i] <= 0)
 			qdata->quota = cpu_to_le32(0);
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 		else if (data.dbgfs_min[i])
 			qdata->quota =
 				cpu_to_le32(data.dbgfs_min[i] * QUOTA_100 / 100);
@@ -334,6 +370,16 @@ int iwl_mvm_update_quotas(struct iwl_mvm *mvm,
 		WARN_ONCE(qdata->quota == 0,
 			  "zero quota on binding %d\n", i);
 	}
+
+#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+	/*
+	 * Zero quota for P2P client MAC as part of a WA to pass P2P OPPPS
+	 * certification test. Refer to IWLMVM_P2P_OPPPS_TEST_WA description in
+	 * Kconfig.noupstream for details.
+	 */
+	if (mvm->p2p_opps_test_wa_vif)
+		iwl_mvm_adjust_quota_for_p2p_wa(mvm, &cmd);
+#endif
 
 	if (!send && !force_update) {
 		/* don't send a practically unchanged command, the firmware has

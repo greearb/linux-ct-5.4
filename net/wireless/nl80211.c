@@ -275,6 +275,8 @@ nl80211_pmsr_ftm_req_attr_policy[NL80211_PMSR_FTM_REQ_ATTR_MAX + 1] = {
 	[NL80211_PMSR_FTM_REQ_ATTR_NUM_FTMR_RETRIES] = { .type = NLA_U8 },
 	[NL80211_PMSR_FTM_REQ_ATTR_REQUEST_LCI] = { .type = NLA_FLAG },
 	[NL80211_PMSR_FTM_REQ_ATTR_REQUEST_CIVICLOC] = { .type = NLA_FLAG },
+	[NL80211_PMSR_FTM_REQ_ATTR_TRIGGER_BASED] = { .type = NLA_FLAG },
+	[NL80211_PMSR_FTM_REQ_ATTR_NON_TRIGGER_BASED] = { .type = NLA_FLAG },
 };
 
 static const struct nla_policy
@@ -617,7 +619,6 @@ const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_TXQ_QUANTUM] = { .type = NLA_U32 },
 	[NL80211_ATTR_HE_CAPABILITY] = { .type = NLA_BINARY,
 					 .len = NL80211_HE_MAX_CAPABILITY_LEN },
-
 	[NL80211_ATTR_FTM_RESPONDER] =
 		NLA_POLICY_NESTED(nl80211_ftm_responder_policy),
 	[NL80211_ATTR_TIMEOUT] = NLA_POLICY_MIN(NLA_U32, 1),
@@ -628,6 +629,8 @@ const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 					.len = SAE_PASSWORD_MAX_LEN },
 	[NL80211_ATTR_TWT_RESPONDER] = { .type = NLA_FLAG },
 	[NL80211_ATTR_HE_OBSS_PD] = NLA_POLICY_NESTED(he_obss_pd_policy),
+	[NL80211_ATTR_NAN_CDW_2G] = { .type = NLA_U8 },
+	[NL80211_ATTR_NAN_CDW_5G] = { .type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -966,6 +969,9 @@ static int nl80211_msg_put_channel(struct sk_buff *msg, struct wiphy *wiphy,
 			goto nla_put_failure;
 		if ((chan->flags & IEEE80211_CHAN_NO_10MHZ) &&
 		    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_NO_10MHZ))
+			goto nla_put_failure;
+		if ((chan->flags & IEEE80211_CHAN_NO_HE) &&
+		    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_NO_HE))
 			goto nla_put_failure;
 	}
 
@@ -1840,6 +1846,12 @@ nl80211_send_pmsr_ftm_capa(const struct cfg80211_pmsr_capabilities *cap,
 	if (cap->ftm.max_ftms_per_burst &&
 	    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_MAX_FTMS_PER_BURST,
 			cap->ftm.max_ftms_per_burst))
+		return -ENOBUFS;
+	if (cap->ftm.trigger_based &&
+	    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_TRIGGER_BASED))
+		return -ENOBUFS;
+	if (cap->ftm.non_trigger_based &&
+	    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_NON_TRIGGER_BASED))
 		return -ENOBUFS;
 
 	nla_nest_end(msg, ftm);
@@ -12551,6 +12563,19 @@ static int nl80211_start_nan(struct sk_buff *skb, struct genl_info *info)
 		conf.bands = bands;
 	}
 
+	if (info->attrs[NL80211_ATTR_NAN_CDW_2G])
+		conf.cdw_2g = nla_get_u8(info->attrs[NL80211_ATTR_NAN_CDW_2G]);
+	else
+		conf.cdw_2g = 1;
+
+	if (info->attrs[NL80211_ATTR_NAN_CDW_5G])
+		conf.cdw_5g = nla_get_u8(info->attrs[NL80211_ATTR_NAN_CDW_2G]);
+	else
+		conf.cdw_5g = 1;
+
+	if (!conf.cdw_2g || conf.cdw_2g > 5 || conf.cdw_5g > 5)
+		return -EINVAL;
+
 	err = rdev_start_nan(rdev, wdev, &conf);
 	if (err)
 		return err;
@@ -12921,6 +12946,24 @@ static int nl80211_nan_change_config(struct sk_buff *skb,
 
 		conf.bands = bands;
 		changed |= CFG80211_NAN_CONF_CHANGED_BANDS;
+	}
+
+	if (info->attrs[NL80211_ATTR_NAN_CDW_2G]) {
+		conf.cdw_2g = nla_get_u8(info->attrs[NL80211_ATTR_NAN_CDW_2G]);
+
+		if (!conf.cdw_2g || conf.cdw_2g > 5)
+			return -EINVAL;
+
+		changed |= CFG80211_NAN_CONF_CHANGED_CDW_2G;
+	}
+
+	if (info->attrs[NL80211_ATTR_NAN_CDW_5G]) {
+		conf.cdw_5g = nla_get_u8(info->attrs[NL80211_ATTR_NAN_CDW_2G]);
+
+		if (conf.cdw_5g > 5)
+			return -EINVAL;
+
+		changed |= CFG80211_NAN_CONF_CHANGED_CDW_5G;
 	}
 
 	if (!changed)

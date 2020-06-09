@@ -8,7 +8,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -341,9 +341,16 @@ static u32 iwl_mvm_get_tx_rate(struct iwl_mvm *mvm,
 		rate_idx = rate_lowest_index(
 				&mvm->nvm_data->bands[info->band], sta);
 
-	/* For 5 GHZ band, remap mac80211 rate indices into driver indices */
-	if (info->band == NL80211_BAND_5GHZ)
+	/*
+	 * For non 2 GHZ band, remap mac80211 rate
+	 * indices into driver indices
+	 */
+	if (info->band != NL80211_BAND_2GHZ)
 		rate_idx += IWL_FIRST_OFDM_RATE;
+#ifdef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
+	/* Force OFDM on each TX packet */
+	rate_idx = IWL_FIRST_OFDM_RATE;
+#endif
 
 	/* For 2.4 GHZ band, check that there is no need to remap */
 	BUILD_BUG_ON(IWL_FIRST_CCK_RATE != 0);
@@ -392,6 +399,7 @@ void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm, struct iwl_tx_cmd *tx_cmd,
 	 * table is controlled by LINK_QUALITY commands
 	 */
 
+#ifndef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
 	if (ieee80211_is_data(fc) && sta) {
 		struct iwl_mvm_sta *mvmsta = iwl_mvm_sta_from_mac80211(sta);
 
@@ -404,6 +412,11 @@ void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm, struct iwl_tx_cmd *tx_cmd,
 		tx_cmd->tx_flags |=
 			cpu_to_le32(TX_CMD_FLG_ACK | TX_CMD_FLG_BAR);
 	}
+#else
+	if (ieee80211_is_back_req(fc))
+			tx_cmd->tx_flags |=
+				cpu_to_le32(TX_CMD_FLG_ACK | TX_CMD_FLG_BAR);
+#endif
 
 	/* Set the rate in the TX cmd */
 	tx_cmd->rate_n_flags =
@@ -542,7 +555,7 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 		}
 
 		if (mvm->trans->trans_cfg->device_family >=
-		    IWL_DEVICE_FAMILY_22560) {
+		    IWL_DEVICE_FAMILY_AX210) {
 			struct iwl_tx_cmd_gen3 *cmd = (void *)dev_cmd->payload;
 
 			cmd->offload_assist |= cpu_to_le32(offload_assist);
@@ -922,11 +935,8 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb,
 	 * No need to lock amsdu_in_ampdu_allowed since it can't be modified
 	 * during an BA session.
 	 */
-	if (info->flags & IEEE80211_TX_CTL_AMPDU &&
-	    !mvmsta->tid_data[tid].amsdu_in_ampdu_allowed)
-		return iwl_mvm_tx_tso_segment(skb, 1, netdev_flags, mpdus_skb);
-
-	if (iwl_mvm_vif_low_latency(iwl_mvm_vif_from_mac80211(mvmsta->vif)) ||
+	if ((info->flags & IEEE80211_TX_CTL_AMPDU &&
+	     !mvmsta->tid_data[tid].amsdu_in_ampdu_allowed) ||
 	    !(mvmsta->amsdu_enabled & BIT(tid)))
 		return iwl_mvm_tx_tso_segment(skb, 1, netdev_flags, mpdus_skb);
 
@@ -1300,7 +1310,7 @@ static void iwl_mvm_check_ratid_empty(struct iwl_mvm *mvm,
 	}
 }
 
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CPTCFG_IWLWIFI_DEBUG
 const char *iwl_mvm_get_tx_fail_reason(u32 status)
 {
 #define TX_STATUS_FAIL(x) case TX_STATUS_FAIL_ ## x: return #x
@@ -1338,7 +1348,7 @@ const char *iwl_mvm_get_tx_fail_reason(u32 status)
 #undef TX_STATUS_FAIL
 #undef TX_STATUS_POSTPONE
 }
-#endif /* CONFIG_IWLWIFI_DEBUG */
+#endif /* CPTCFG_IWLWIFI_DEBUG */
 
 void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
 			       enum nl80211_band band,
@@ -1388,6 +1398,21 @@ static void iwl_mvm_hwrate_to_tx_status(u32 rate_n_flags,
 		((rate_n_flags & RATE_MCS_ANT_ABC_MSK) >> RATE_MCS_ANT_POS);
 	iwl_mvm_hwrate_to_tx_rate(rate_n_flags, info->band, r);
 }
+
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+static void iwl_mvm_tx_lat_add_ts_ack(struct sk_buff *skb)
+{
+	s64 temp = ktime_to_ms(ktime_get());
+	s64 ts_1 = ktime_to_ns(skb->tstamp) >> 32;
+	s64 diff = temp - ts_1;
+
+#if LINUX_VERSION_IS_LESS(4,10,0)
+	skb->tstamp.tv64 += diff;
+#else
+	skb->tstamp += diff;
+#endif
+}
+#endif
 
 static void iwl_mvm_tx_status_check_trigger(struct iwl_mvm *mvm,
 					    u32 status)
@@ -1474,6 +1499,9 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		bool flushed = false;
 
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+		iwl_mvm_tx_lat_add_ts_ack(skb);
+#endif
 		skb_freed++;
 
 		iwl_trans_free_tx_cmd(mvm->trans, info->driver_data[1]);
@@ -1524,7 +1552,8 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		/* Single frame failure in an AMPDU queue => send BAR */
 		if (info->flags & IEEE80211_TX_CTL_AMPDU &&
 		    !(info->flags & IEEE80211_TX_STAT_ACK) &&
-		    !(info->flags & IEEE80211_TX_STAT_TX_FILTERED) && !flushed)
+		    !(info->flags & IEEE80211_TX_STAT_TX_FILTERED) &&
+		    !flushed)
 			info->flags |= IEEE80211_TX_STAT_AMPDU_NO_BACK;
 		info->flags &= ~IEEE80211_TX_CTL_AMPDU;
 
@@ -1558,6 +1587,12 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		lq_color = TX_RES_RATE_TABLE_COL_GET(tx_resp->tlc_info);
 		info->status.status_driver_data[0] =
 			RS_DRV_DATA_PACK(lq_color, tx_resp->reduced_tpc);
+
+#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+		if (info->flags & IEEE80211_TX_STAT_ACK)
+			iwl_mvm_tdls_peer_cache_pkt(mvm, (void *)skb->data,
+						    skb->len, -1);
+#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
 
 		ieee80211_tx_status(mvm->hw, skb);
 	}
@@ -1667,7 +1702,7 @@ out:
 	rcu_read_unlock();
 }
 
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CPTCFG_IWLWIFI_DEBUG
 #define AGG_TX_STATE_(x) case AGG_TX_STATE_ ## x: return #x
 static const char *iwl_get_agg_tx_status(u16 status)
 {
@@ -1714,7 +1749,7 @@ static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 				      struct iwl_rx_packet *pkt)
 {}
-#endif /* CONFIG_IWLWIFI_DEBUG */
+#endif /* CPTCFG_IWLWIFI_DEBUG */
 
 static void iwl_mvm_rx_tx_cmd_agg(struct iwl_mvm *mvm,
 				  struct iwl_rx_packet *pkt)
@@ -1832,6 +1867,9 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+		iwl_mvm_tx_lat_add_ts_ack(skb);
+#endif
 		if (ieee80211_is_data_qos(hdr->frame_control))
 			freed++;
 		else
@@ -1845,6 +1883,10 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 		 * it without aggregation at least once.
 		 */
 		info->flags |= IEEE80211_TX_STAT_ACK;
+
+#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+		iwl_mvm_tdls_peer_cache_pkt(mvm, hdr, skb->len, -1);
+#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
 
 		/* this is the first skb we deliver in this batch */
 		/* put the rate scaling data there */
@@ -2051,7 +2093,7 @@ int iwl_mvm_flush_sta(struct iwl_mvm *mvm, void *sta, bool internal, u32 flags)
 
 	if (iwl_mvm_has_new_tx_api(mvm))
 		return iwl_mvm_flush_sta_tids(mvm, mvm_sta->sta_id,
-					      0xff | BIT(IWL_MGMT_TID), flags);
+					      0xffff, flags);
 
 	if (internal)
 		return iwl_mvm_flush_tx_path(mvm, int_sta->tfd_queue_msk,

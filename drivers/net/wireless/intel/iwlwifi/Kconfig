@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config IWLWIFI
 	tristate "Intel Wireless WiFi Next Gen AGN - Wireless-N/Advanced-N/Ultimate-N (iwlwifi) "
-	depends on PCI && HAS_IOMEM && CFG80211
-	select FW_LOADER
+	depends on m
+	depends on ((PCI && HAS_IOMEM) || VIRTIO) && CFG80211
+	depends on FW_LOADER
 	---help---
 	  Select to build the driver supporting the:
 
@@ -40,7 +41,7 @@ config IWLWIFI
 
 	  If you want to compile the driver as a module ( = code which can be
 	  inserted in and removed from the running kernel whenever you want),
-	  say M here and read <file:Documentation/kbuild/modules.rst>.  The
+	  say M here and read <file:Documentation/kbuild/modules.txt>.  The
 	  module will be called iwlwifi.
 
 if IWLWIFI
@@ -49,21 +50,14 @@ config IWLWIFI_LEDS
 	bool
 	depends on LEDS_CLASS=y || LEDS_CLASS=IWLWIFI
 	depends on IWLMVM || IWLDVM
-	select LEDS_TRIGGERS
+	select BPAUTO_LEDS_TRIGGERS
 	select MAC80211_LEDS
 	default y
 
-config IWLDVM
-	tristate "Intel Wireless WiFi DVM Firmware support"
-	depends on MAC80211
-	help
-	  This is the driver that supports the DVM firmware. The list
-	  of the devices that use this firmware is available here:
-	  https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi#firmware
-
 config IWLMVM
 	tristate "Intel Wireless WiFi MVM Firmware support"
-	select WANT_DEV_COREDUMP
+	depends on m
+	select BPAUTO_WANT_DEV_COREDUMP
 	depends on MAC80211
 	help
 	  This is the driver that supports the MVM firmware. The list
@@ -75,9 +69,11 @@ config IWLWIFI_OPMODE_MODULAR
 	bool
 	default y if IWLDVM=m
 	default y if IWLMVM=m
+	default y if IWLXVT=m
+	default y if IWLFMAC=m
 
-comment "WARNING: iwlwifi is useless without IWLDVM or IWLMVM"
-	depends on IWLDVM=n && IWLMVM=n
+comment "WARNING: iwlwifi is useless without IWLDVM, IWLMVM or IWLFMAC"
+	depends on IWLDVM=n && IWLMVM=n && IWLFMAC=n
 
 config IWLWIFI_BCAST_FILTERING
 	bool "Enable broadcast filtering"
@@ -119,9 +115,9 @@ config IWLWIFI_DEBUG
 	  any problems you may encounter.
 
 config IWLWIFI_DEBUGFS
-	bool "iwlwifi debugfs support"
-	depends on MAC80211_DEBUGFS
-	---help---
+        bool "iwlwifi debugfs support"
+        depends on MAC80211_DEBUGFS
+        ---help---
 	  Enable creation of debugfs files for the iwlwifi drivers. This
 	  is a low-impact option that allows getting insight into the
 	  driver's state at runtime.
@@ -146,3 +142,5 @@ config IWLWIFI_DEVICE_TRACING
 endmenu
 
 endif
+
+source "drivers/net/wireless/intel/iwlwifi/Kconfig.noupstream"

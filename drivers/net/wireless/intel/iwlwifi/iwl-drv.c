@@ -5,10 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2014, 2018 - 2020  Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -28,10 +27,9 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2005 - 2014, 2018 - 2020 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,6 +76,12 @@
 #include "iwl-config.h"
 #include "iwl-modparams.h"
 #include "fw/api/alive.h"
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#include "iwl-dbg-cfg.h"
+#endif
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#include "iwl-tm-gnl.h"
+#endif
 
 /******************************************************************************
  *
@@ -90,7 +94,7 @@ MODULE_DESCRIPTION(DRV_DESCRIPTION);
 MODULE_AUTHOR(DRV_COPYRIGHT " " DRV_AUTHOR);
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 static struct dentry *iwl_dbgfs_root;
 #endif
 
@@ -112,13 +116,16 @@ struct iwl_drv {
 	struct iwl_op_mode *op_mode;
 	struct iwl_trans *trans;
 	struct device *dev;
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	bool xvt_mode_on;
+#endif
 
 	int fw_index;                   /* firmware we're trying to load */
 	char firmware_name[64];         /* name of firmware file to load */
 
 	struct completion request_firmware_complete;
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	struct dentry *dbgfs_drv;
 	struct dentry *dbgfs_trans;
 	struct dentry *dbgfs_op_mode;
@@ -128,6 +135,9 @@ struct iwl_drv {
 enum {
 	DVM_OP_MODE,
 	MVM_OP_MODE,
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	XVT_OP_MODE,
+#endif
 };
 
 /* Protects the table contents, i.e. the ops pointer & drv list */
@@ -139,7 +149,205 @@ static struct iwlwifi_opmode_table {
 } iwlwifi_opmode_table[] = {		/* ops set when driver is initialized */
 	[DVM_OP_MODE] = { .name = "iwldvm", .ops = NULL },
 	[MVM_OP_MODE] = { .name = "iwlmvm", .ops = NULL },
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	[XVT_OP_MODE] = { .name = "iwlxvt", .ops = NULL },
+#endif
 };
+
+#if IS_ENABLED(CPTCFG_IWLXVT)
+/* kernel object for a device dedicated
+ * folder in the sysfs */
+static struct kobject *iwl_kobj;
+
+static struct iwl_op_mode *
+_iwl_op_mode_start(struct iwl_drv *drv, struct iwlwifi_opmode_table *op);
+static void _iwl_op_mode_stop(struct iwl_drv *drv);
+
+/*
+ * iwl_drv_get_dev_container - Given a device, returns the pointer
+ * to it's corresponding driver's struct
+ */
+struct iwl_drv *iwl_drv_get_dev_container(struct device *dev)
+{
+	struct iwl_drv *drv_itr;
+	int i;
+
+	/* Going over all drivers, looking for the one that holds dev */
+	for (i = 0; (i < ARRAY_SIZE(iwlwifi_opmode_table)); i++) {
+		list_for_each_entry(drv_itr, &iwlwifi_opmode_table[i].drv, list)
+				if (drv_itr->dev == dev)
+					return drv_itr;
+	}
+
+	return NULL;
+}
+IWL_EXPORT_SYMBOL(iwl_drv_get_dev_container);
+
+/*
+ * iwl_drv_get_op_mode - Returns the index of the device's
+ * active operation mode
+ */
+static int iwl_drv_get_op_mode_idx(struct iwl_drv *drv)
+{
+	struct iwl_drv *drv_itr;
+	int i;
+
+	if (!drv || !drv->dev)
+		return -ENODEV;
+
+	/* Going over all drivers, looking for the list that holds it */
+	for (i = 0; (i < ARRAY_SIZE(iwlwifi_opmode_table)); i++) {
+		list_for_each_entry(drv_itr, &iwlwifi_opmode_table[i].drv, list)
+			if (drv_itr->dev == drv->dev)
+				return i;
+	}
+
+	return -EINVAL;
+}
+
+static bool iwl_drv_xvt_mode_supported(enum iwl_fw_type fw_type, int mode_idx)
+{
+	/* xVT mode is available only with 16 FW */
+	switch (fw_type) {
+	case IWL_FW_MVM:
+		break;
+	default:
+		return false;
+	}
+
+	/* check whether the requested operation mode is supported */
+	switch (mode_idx) {
+	case XVT_OP_MODE:
+	case MVM_OP_MODE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/*
+ * iwl_drv_switch_op_mode - Switch between operation modes
+ * Checks if the desired operation mode is valid, if it
+ * is supported by the device. Stops the current op mode
+ * and starts the desired mode.
+ */
+int iwl_drv_switch_op_mode(struct iwl_drv *drv, const char *new_op_name)
+{
+	struct iwlwifi_opmode_table *new_op = NULL;
+	int idx;
+
+	/* Searching for wanted op_mode*/
+	for (idx = 0; idx < ARRAY_SIZE(iwlwifi_opmode_table); idx++) {
+		if (!strcmp(iwlwifi_opmode_table[idx].name, new_op_name)) {
+			new_op = &iwlwifi_opmode_table[idx];
+			break;
+		}
+	}
+
+	/* Checking if the desired op mode is valid */
+	if (!new_op) {
+		IWL_ERR(drv, "No such op mode \"%s\"\n", new_op_name);
+		return -EINVAL;
+	}
+
+	/*
+	 * If the desired op mode is already the
+	 * device's current op mode, do nothing
+	 */
+	if (idx == iwl_drv_get_op_mode_idx(drv))
+		return 0;
+
+	/* Check if the desired operation mode is supported by the device/fw */
+	if (!iwl_drv_xvt_mode_supported(drv->fw.type, idx)) {
+		IWL_ERR(drv, "Op mode %s is not supported by the loaded fw\n",
+			new_op_name);
+		return -ENOTSUPP;
+	}
+
+	/* Recording new op mode state */
+	drv->xvt_mode_on = (idx == XVT_OP_MODE);
+
+	/* Stopping the current op mode */
+	_iwl_op_mode_stop(drv);
+
+	/* Changing operation mode */
+	mutex_lock(&iwlwifi_opmode_table_mtx);
+	list_move_tail(&drv->list, &new_op->drv);
+	mutex_unlock(&iwlwifi_opmode_table_mtx);
+
+	/* Starting the new op mode */
+	if (new_op->ops) {
+		drv->op_mode = _iwl_op_mode_start(drv, new_op);
+		if (!drv->op_mode) {
+			IWL_ERR(drv, "Error switching op modes\n");
+			return -EINVAL;
+		}
+	} else {
+		return request_module("%s", new_op->name);
+	}
+
+	return 0;
+}
+IWL_EXPORT_SYMBOL(iwl_drv_switch_op_mode);
+
+/*
+ * iwl_drv_sysfs_show - Returns device information to user
+ */
+static ssize_t iwl_drv_sysfs_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct iwl_drv  *drv;
+	int op_mode_idx = 0, itr;
+	int ret = 0;
+
+	/* Retrieving containing driver */
+	drv = iwl_drv_get_dev_container(dev);
+	op_mode_idx = iwl_drv_get_op_mode_idx(drv);
+
+	/* Checking if driver and driver information are valid */
+	if (op_mode_idx < 0)
+		return op_mode_idx;
+
+	/* Constructing output */
+	for (itr = 0; itr < ARRAY_SIZE(iwlwifi_opmode_table); itr++) {
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s%-s\n",
+				 (itr == op_mode_idx) ? "* " : "  ",
+				 iwlwifi_opmode_table[itr].name);
+	}
+
+	return ret;
+}
+
+/* Attribute for device */
+static const DEVICE_ATTR(op_mode, S_IRUGO,
+			 iwl_drv_sysfs_show, NULL);
+
+/*
+ * iwl_create_sysfs_file - Creates a sysfs entry (under PCI devices),
+ * and a symlink under modules/iwlwifi
+ */
+static int iwl_create_sysfs_file(struct iwl_drv *drv)
+{
+	int ret;
+
+	ret = device_create_file(drv->dev, &dev_attr_op_mode);
+	if (!ret) {
+		ret = sysfs_create_link(iwl_kobj,
+					&drv->dev->kobj, dev_name(drv->dev));
+	}
+
+	return ret;
+}
+
+/*
+ * iwl_remove_sysfs_file - Removes sysfs entries
+ */
+static void iwl_remove_sysfs_file(struct iwl_drv *drv)
+{
+	sysfs_remove_link(iwl_kobj, dev_name(drv->dev));
+	device_remove_file(drv->dev, &dev_attr_op_mode);
+}
+#endif /* CPTCFG_IWLXVT */
 
 #define IWL_DEFAULT_SCAN_CHANNELS 40
 
@@ -214,6 +422,9 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 {
 	const struct iwl_cfg *cfg = drv->trans->cfg;
 	char tag[8];
+#if defined(CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES)
+	char fw_name_temp[64];
+#endif
 
 	if (drv->trans->trans_cfg->device_family == IWL_DEVICE_FAMILY_9000 &&
 	    (CSR_HW_REV_STEP(drv->trans->hw_rev) != SILICON_B_STEP &&
@@ -232,7 +443,20 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 		sprintf(tag, "%d", drv->fw_index);
 	}
 
+#ifdef CPTCFG_IWLWIFI_DISALLOW_OLDER_FW
+	/* The dbg-cfg check here works because the first time we get
+	 * here we always load the 'api_max' version, and once that
+	 * has returned we load the dbg-cfg file.
+	 */
+	if ((drv->fw_index != cfg->ucode_api_max
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	     && !drv->trans->dbg_cfg.load_old_fw
+#endif
+	    ) ||
+	    drv->fw_index < cfg->ucode_api_min) {
+#else
 	if (drv->fw_index < cfg->ucode_api_min) {
+#endif
 		IWL_ERR(drv, "no suitable firmware found!\n");
 
 		if (cfg->ucode_api_min == cfg->ucode_api_max) {
@@ -252,6 +476,15 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 
 	snprintf(drv->firmware_name, sizeof(drv->firmware_name), "%s%s.ucode",
 		 cfg->fw_name_pre, tag);
+
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	if (drv->trans->dbg_cfg.fw_file_pre) {
+		snprintf(fw_name_temp, sizeof(fw_name_temp), "%s%s",
+			 drv->trans->dbg_cfg.fw_file_pre, drv->firmware_name);
+		strncpy(drv->firmware_name, fw_name_temp,
+			sizeof(drv->firmware_name));
+	}
+#endif /* CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES */
 
 	IWL_DEBUG_FW_INFO(drv, "attempting to load firmware '%s'\n",
 			  drv->firmware_name);
@@ -493,6 +726,16 @@ static void iwl_set_ucode_capabilities(struct iwl_drv *drv, const u8 *data,
 	}
 }
 
+static const char *iwl_reduced_fw_name(struct iwl_drv *drv)
+{
+	const char *name = drv->firmware_name;
+
+	if (strncmp(name, "iwlwifi-", 8) == 0)
+		name += 8;
+
+	return name;
+}
+
 static int iwl_parse_v1_v2_firmware(struct iwl_drv *drv,
 				    const struct firmware *ucode_raw,
 				    struct iwl_firmware_pieces *pieces)
@@ -551,12 +794,12 @@ static int iwl_parse_v1_v2_firmware(struct iwl_drv *drv,
 
 	snprintf(drv->fw.fw_version,
 		 sizeof(drv->fw.fw_version),
-		 "%u.%u.%u.%u%s",
+		 "%u.%u.%u.%u%s %s",
 		 IWL_UCODE_MAJOR(drv->fw.ucode_ver),
 		 IWL_UCODE_MINOR(drv->fw.ucode_ver),
 		 IWL_UCODE_API(drv->fw.ucode_ver),
 		 IWL_UCODE_SERIAL(drv->fw.ucode_ver),
-		 buildstr);
+		 buildstr, iwl_reduced_fw_name(drv));
 
 	/* Verify size of file vs. image size info in file's header */
 
@@ -613,6 +856,17 @@ static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
 	int num_of_cpus;
 	bool usniffer_req = false;
 
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	if (ucode->magic == cpu_to_le32(IWL_TLV_FW_DBG_MAGIC)) {
+		size_t dbg_data_ofs = offsetof(struct iwl_tlv_ucode_header,
+					       human_readable);
+		data = (void *)ucode_raw->data + dbg_data_ofs;
+		len -= dbg_data_ofs;
+
+		goto fw_dbg_conf;
+	}
+#endif
+
 	if (len < sizeof(*ucode)) {
 		IWL_ERR(drv, "uCode has invalid length: %zd\n", len);
 		return -EINVAL;
@@ -636,16 +890,20 @@ static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
 
 	snprintf(drv->fw.fw_version,
 		 sizeof(drv->fw.fw_version),
-		 "%u.%u.%u.%u%s",
+		 "%u.%u.%u.%u%s %s",
 		 IWL_UCODE_MAJOR(drv->fw.ucode_ver),
 		 IWL_UCODE_MINOR(drv->fw.ucode_ver),
 		 IWL_UCODE_API(drv->fw.ucode_ver),
 		 IWL_UCODE_SERIAL(drv->fw.ucode_ver),
-		 buildstr);
+		 buildstr, iwl_reduced_fw_name(drv));
 
 	data = ucode->data;
 
 	len -= sizeof(*ucode);
+
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+fw_dbg_conf:
+#endif
 
 	while (len >= sizeof(*tlv)) {
 		len -= sizeof(*tlv);
@@ -830,6 +1088,27 @@ static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
 			if (tlv_len != sizeof(u32))
 				goto invalid_tlv_len;
 			drv->fw.phy_config = le32_to_cpup((__le32 *)tlv_data);
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+			if (drv->trans->dbg_cfg.valid_ants & ~ANT_ABC)
+				IWL_ERR(drv,
+					"Invalid value for antennas: 0x%x\n",
+					drv->trans->dbg_cfg.valid_ants);
+			/* Make sure value stays in range */
+			drv->trans->dbg_cfg.valid_ants &= ANT_ABC;
+			if (drv->trans->dbg_cfg.valid_ants) {
+				u32 phy_config = ~(FW_PHY_CFG_TX_CHAIN |
+						   FW_PHY_CFG_RX_CHAIN);
+
+				phy_config |=
+					(drv->trans->dbg_cfg.valid_ants <<
+					 FW_PHY_CFG_TX_CHAIN_POS);
+				phy_config |=
+					(drv->trans->dbg_cfg.valid_ants <<
+					 FW_PHY_CFG_RX_CHAIN_POS);
+
+				drv->fw.phy_config &= phy_config;
+			}
+#endif
 			drv->fw.valid_tx_ant = (drv->fw.phy_config &
 						FW_PHY_CFG_TX_CHAIN) >>
 						FW_PHY_CFG_TX_CHAIN_POS;
@@ -892,14 +1171,16 @@ static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
 			minor = le32_to_cpup(ptr++);
 			local_comp = le32_to_cpup(ptr);
 
-			if (major >= 35)
+			if (strncmp(drv->fw.human_readable, "stream:", 7))
 				snprintf(drv->fw.fw_version,
 					 sizeof(drv->fw.fw_version),
-					"%u.%08x.%u", major, minor, local_comp);
+					"%u.%08x.%u %s", major, minor,
+					local_comp, iwl_reduced_fw_name(drv));
 			else
 				snprintf(drv->fw.fw_version,
 					 sizeof(drv->fw.fw_version),
-					"%u.%u.%u", major, minor, local_comp);
+					"%u.%u.%u %s", major, minor,
+					local_comp, iwl_reduced_fw_name(drv));
 			break;
 			}
 		case IWL_UCODE_TLV_FW_DBG_DEST: {
@@ -918,6 +1199,16 @@ static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
 					*pieces->dbg_dest_ver);
 				break;
 			}
+
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+			if (drv->trans->dbg_cfg.dbm_destination_path) {
+				IWL_ERR(drv,
+					"Ignoring destination, ini file present\n");
+				break;
+			}
+#endif
+#endif
 
 			if (pieces->dbg_dest_tlv_init) {
 				IWL_ERR(drv,
@@ -1277,7 +1568,7 @@ _iwl_op_mode_start(struct iwl_drv *drv, struct iwlwifi_opmode_table *op)
 	struct dentry *dbgfs_dir = NULL;
 	struct iwl_op_mode *op_mode = NULL;
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	drv->dbgfs_op_mode = debugfs_create_dir(op->name,
 						drv->dbgfs_drv);
 	dbgfs_dir = drv->dbgfs_op_mode;
@@ -1285,12 +1576,13 @@ _iwl_op_mode_start(struct iwl_drv *drv, struct iwlwifi_opmode_table *op)
 
 	op_mode = ops->start(drv->trans, drv->trans->cfg, &drv->fw, dbgfs_dir);
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (!op_mode) {
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 		debugfs_remove_recursive(drv->dbgfs_op_mode);
 		drv->dbgfs_op_mode = NULL;
-	}
+		return NULL;
 #endif
+	}
 
 	return op_mode;
 }
@@ -1302,7 +1594,7 @@ static void _iwl_op_mode_stop(struct iwl_drv *drv)
 		iwl_op_mode_stop(drv->op_mode);
 		drv->op_mode = NULL;
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 		debugfs_remove_recursive(drv->dbgfs_op_mode);
 		drv->dbgfs_op_mode = NULL;
 #endif
@@ -1330,6 +1622,11 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	int i;
 	bool load_module = false;
 	bool usniffer_images = false;
+
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	const struct firmware *fw_dbg_config;
+	int load_fw_dbg_err = -ENOENT;
+#endif
 
 	fw->ucode_capa.max_probe_length = IWL_DEFAULT_MAX_PROBE_LENGTH;
 	fw->ucode_capa.standard_phy_calibration_size =
@@ -1365,6 +1662,23 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 
 	if (err)
 		goto try_again;
+
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	if (!ucode->ver && drv->trans->dbg_cfg.fw_dbg_conf) {
+		load_fw_dbg_err =
+			request_firmware(&fw_dbg_config,
+					 drv->trans->dbg_cfg.fw_dbg_conf,
+					 drv->trans->dev);
+		if (!load_fw_dbg_err) {
+			err = iwl_parse_tlv_firmware(drv, fw_dbg_config, pieces,
+						     &fw->ucode_capa,
+						     &usniffer_images);
+			if (err)
+				IWL_ERR(drv,
+					"Failed to configure FW DBG data!\n");
+		}
+	}
+#endif
 
 	if (fw_has_api(&drv->fw.ucode_capa, IWL_UCODE_TLV_API_NEW_VERSION))
 		api_ver = drv->fw.ucode_ver;
@@ -1455,7 +1769,7 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 				kmemdup(pieces->dbg_conf_tlv[i],
 					pieces->dbg_conf_tlv_len[i],
 					GFP_KERNEL);
-			if (!pieces->dbg_conf_tlv_len[i])
+			if (!pieces->dbg_conf_tlv[i])
 				goto out_free_fw;
 		}
 	}
@@ -1479,6 +1793,10 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 		sizeof(struct iwl_fw_dbg_trigger_time_event);
 	trigger_tlv_sz[FW_DBG_TRIGGER_BA] =
 		sizeof(struct iwl_fw_dbg_trigger_ba);
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+	trigger_tlv_sz[FW_DBG_TRIGGER_TX_LATENCY] =
+		sizeof(struct iwl_fw_dbg_trigger_tx_latency);
+#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
 	trigger_tlv_sz[FW_DBG_TRIGGER_TDLS] =
 		sizeof(struct iwl_fw_dbg_trigger_tdls);
 
@@ -1544,6 +1862,11 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	/* We have our copies now, allow OS release its copies */
 	release_firmware(ucode_raw);
 
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	if (!load_fw_dbg_err)
+		release_firmware(fw_dbg_config);
+#endif
+
 	mutex_lock(&iwlwifi_opmode_table_mtx);
 	switch (fw->type) {
 	case IWL_FW_DVM:
@@ -1557,8 +1880,17 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 		break;
 	}
 
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	if (iwlwifi_mod_params.xvt_default_mode && drv->fw.type == IWL_FW_MVM)
+		op = &iwlwifi_opmode_table[XVT_OP_MODE];
+
+	drv->xvt_mode_on = (op == &iwlwifi_opmode_table[XVT_OP_MODE]);
+#endif
+
 	IWL_INFO(drv, "loaded firmware version %s op_mode %s\n",
 		 drv->fw.fw_version, op->name);
+
+	iwl_dbg_tlv_load_bin(drv->trans->dev, drv->trans);
 
 	/* add this device to the list of devices using this op_mode */
 	list_add_tail(&drv->list, &op->drv);
@@ -1587,15 +1919,8 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	 * else from proceeding if the module fails to load
 	 * or hangs loading.
 	 */
-	if (load_module) {
+	if (load_module)
 		request_module("%s", op->name);
-#ifdef CONFIG_IWLWIFI_OPMODE_MODULAR
-		if (err)
-			IWL_ERR(drv,
-				"failed to load module %s (error %d), is dynamic loading enabled?\n",
-				op->name, err);
-#endif
-	}
 	goto free;
 
  try_again:
@@ -1636,9 +1961,12 @@ struct iwl_drv *iwl_drv_start(struct iwl_trans *trans)
 	init_completion(&drv->request_firmware_complete);
 	INIT_LIST_HEAD(&drv->list);
 
-	iwl_dbg_tlv_load_bin(drv->trans->dev, drv->trans);
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	trans->dbg_cfg = current_dbg_config;
+	iwl_dbg_cfg_load_ini(drv->trans->dev, &drv->trans->dbg_cfg);
+#endif
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	/* Create the device debugfs entries. */
 	drv->dbgfs_drv = debugfs_create_dir(dev_name(trans->dev),
 					    iwl_dbgfs_root);
@@ -1647,19 +1975,36 @@ struct iwl_drv *iwl_drv_start(struct iwl_trans *trans)
 	drv->trans->dbgfs_dir = debugfs_create_dir("trans", drv->dbgfs_drv);
 #endif
 
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	iwl_tm_gnl_add(drv->trans);
+#endif
+
+	drv->trans->dbg.domains_bitmap = IWL_TRANS_FW_DBG_DOMAIN(drv->trans);
+
 	ret = iwl_request_firmware(drv, true);
 	if (ret) {
 		IWL_ERR(trans, "Couldn't request the fw\n");
 		goto err_fw;
 	}
 
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	ret = iwl_create_sysfs_file(drv);
+	if (ret) {
+		IWL_ERR(trans, "Couldn't create sysfs entry\n");
+		goto err_fw;
+	}
+#endif
+
 	return drv;
 
 err_fw:
-#ifdef CONFIG_IWLWIFI_DEBUGFS
-	debugfs_remove_recursive(drv->dbgfs_drv);
-	iwl_dbg_tlv_free(drv->trans);
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	iwl_tm_gnl_remove(drv->trans);
 #endif
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
+	debugfs_remove_recursive(drv->dbgfs_drv);
+#endif
+	iwl_dbg_tlv_free(drv->trans);
 	kfree(drv);
 err:
 	return ERR_PTR(ret);
@@ -1683,13 +2028,24 @@ void iwl_drv_stop(struct iwl_drv *drv)
 		list_del(&drv->list);
 	mutex_unlock(&iwlwifi_opmode_table_mtx);
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	drv->trans->ops->debugfs_cleanup(drv->trans);
 
 	debugfs_remove_recursive(drv->dbgfs_drv);
 #endif
 
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	iwl_dbg_cfg_free(&drv->trans->dbg_cfg);
+#endif
 	iwl_dbg_tlv_free(drv->trans);
+
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	iwl_remove_sysfs_file(drv);
+#endif
+
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	iwl_tm_gnl_remove(drv->trans);
+#endif
 
 	kfree(drv);
 }
@@ -1701,6 +2057,7 @@ struct iwl_mod_params iwlwifi_mod_params = {
 	.bt_coex_active = true,
 	.power_level = IWL_POWER_INDEX_1,
 	.uapsd_disable = IWL_DISABLE_UAPSD_BSS | IWL_DISABLE_UAPSD_P2P_CLIENT,
+	.enable_ini = true,
 	/* the rest are 0 by default */
 };
 IWL_EXPORT_SYMBOL(iwlwifi_mod_params);
@@ -1760,10 +2117,23 @@ static int __init iwl_drv_init(void)
 	for (i = 0; i < ARRAY_SIZE(iwlwifi_opmode_table); i++)
 		INIT_LIST_HEAD(&iwlwifi_opmode_table[i].drv);
 
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	if (iwl_tm_gnl_init())
+		return -EFAULT;
+#endif
+
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	iwl_kobj = kobject_create_and_add("devices", &THIS_MODULE->mkobj.kobj);
+	if (!iwl_kobj) {
+		err = -ENOMEM;
+		goto cleanup_tm_gnl;
+	}
+#endif
+
 	pr_info(DRV_DESCRIPTION "\n");
 	pr_info(DRV_COPYRIGHT "\n");
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	/* Create the root of iwlwifi debugfs subsystem. */
 	iwl_dbgfs_root = debugfs_create_dir(DRV_NAME, NULL);
 #endif
@@ -1775,7 +2145,14 @@ static int __init iwl_drv_init(void)
 	return 0;
 
 cleanup_debugfs:
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	kobject_put(iwl_kobj);
+cleanup_tm_gnl:
+#endif
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	iwl_tm_gnl_exit();
+#endif
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	debugfs_remove_recursive(iwl_dbgfs_root);
 #endif
 	return err;
@@ -1786,15 +2163,30 @@ static void __exit iwl_drv_exit(void)
 {
 	iwl_pci_unregister_driver();
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	debugfs_remove_recursive(iwl_dbgfs_root);
+#endif
+
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	if (iwl_kobj)
+		kobject_put(iwl_kobj);
+#endif
+
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	iwl_tm_gnl_exit();
 #endif
 }
 module_exit(iwl_drv_exit);
 
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CPTCFG_IWLWIFI_DEBUG
 module_param_named(debug, iwlwifi_mod_params.debug_level, uint, 0644);
 MODULE_PARM_DESC(debug, "debug output mask");
+#endif
+
+#if IS_ENABLED(CPTCFG_IWLXVT)
+module_param_named(xvt_default_mode, iwlwifi_mod_params.xvt_default_mode,
+		   bool, S_IRUGO);
+MODULE_PARM_DESC(xvt_default_mode, "xVT is the default operation mode (default: false)");
 #endif
 
 module_param_named(swcrypto, iwlwifi_mod_params.swcrypto, int, 0444);
@@ -1804,21 +2196,13 @@ MODULE_PARM_DESC(11n_disable,
 	"disable 11n functionality, bitmap: 1: full, 2: disable agg TX, 4: disable agg RX, 8 enable agg TX");
 module_param_named(amsdu_size, iwlwifi_mod_params.amsdu_size, int, 0444);
 MODULE_PARM_DESC(amsdu_size,
-		 "amsdu size 0: 12K for multi Rx queue devices, 2K for 22560 devices, "
+		 "amsdu size 0: 12K for multi Rx queue devices, 2K for AX210 devices, "
 		 "4K for other devices 1:4K 2:8K 3:12K 4: 2K (default 0)");
 module_param_named(fw_restart, iwlwifi_mod_params.fw_restart, bool, 0444);
 MODULE_PARM_DESC(fw_restart, "restart firmware in case of error (default true)");
 
-module_param_named(antenna_coupling, iwlwifi_mod_params.antenna_coupling,
-		   int, 0444);
-MODULE_PARM_DESC(antenna_coupling,
-		 "specify antenna coupling in dB (default: 0 dB)");
-
 module_param_named(nvm_file, iwlwifi_mod_params.nvm_file, charp, 0444);
 MODULE_PARM_DESC(nvm_file, "NVM file name");
-
-module_param_named(lar_disable, iwlwifi_mod_params.lar_disable, bool, 0444);
-MODULE_PARM_DESC(lar_disable, "disable LAR functionality (default: N)");
 
 module_param_named(uapsd_disable, iwlwifi_mod_params.uapsd_disable, uint, 0644);
 MODULE_PARM_DESC(uapsd_disable,
@@ -1826,7 +2210,7 @@ MODULE_PARM_DESC(uapsd_disable,
 module_param_named(enable_ini, iwlwifi_mod_params.enable_ini,
 		   bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(enable_ini,
-		 "Enable debug INI TLV FW debug infrastructure (default: 0");
+		 "Enable debug INI TLV FW debug infrastructure (default: true");
 
 /*
  * set bt_coex_active to true, uCode will do kill/defer
@@ -1860,19 +2244,16 @@ module_param_named(power_level, iwlwifi_mod_params.power_level, int, 0444);
 MODULE_PARM_DESC(power_level,
 		 "default power save level (range from 1 - 5, default: 1)");
 
-module_param_named(fw_monitor, iwlwifi_mod_params.fw_monitor, bool, 0444);
-MODULE_PARM_DESC(fw_monitor,
-		 "firmware monitor - to debug FW (default: false - needs lots of memory)");
-
 module_param_named(disable_11ac, iwlwifi_mod_params.disable_11ac, bool, 0444);
 MODULE_PARM_DESC(disable_11ac, "Disable VHT capabilities (default: false)");
 
+module_param_named(disable_11ax, iwlwifi_mod_params.disable_11ax, bool, 0444);
+MODULE_PARM_DESC(disable_11ax, "Disable HE capabilities (default: false)");
+
+module_param_named(disable_msix, iwlwifi_mod_params.disable_msix, bool, 0444);
+MODULE_PARM_DESC(disable_msix, "Disable MSI-X and use MSI instead (default: false)");
+
 module_param_named(remove_when_gone,
-		   iwlwifi_mod_params.remove_when_gone, bool,
-		   0444);
+		   iwlwifi_mod_params.remove_when_gone, bool, 0444);
 MODULE_PARM_DESC(remove_when_gone,
 		 "Remove dev from PCIe bus if it is deemed inaccessible (default: false)");
-
-module_param_named(disable_11ax, iwlwifi_mod_params.disable_11ax, bool,
-		   S_IRUGO);
-MODULE_PARM_DESC(disable_11ax, "Disable HE capabilities (default: false)");

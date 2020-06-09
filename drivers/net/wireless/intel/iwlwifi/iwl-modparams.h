@@ -5,8 +5,7 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2007 - 2014, 2018 - 2020 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -26,8 +25,7 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2005 - 2014, 2018 - 2020 Intel Corporation. All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,13 +109,12 @@ enum iwl_uapsd_disable {
  * @power_save: enable power save, default = false
  * @power_level: power level, default = 1
  * @debug_level: levels are IWL_DL_*
- * @antenna_coupling: antenna coupling in dB, default = 0
  * @nvm_file: specifies a external NVM file
  * @uapsd_disable: disable U-APSD, see &enum iwl_uapsd_disable, default =
  *	IWL_DISABLE_UAPSD_BSS | IWL_DISABLE_UAPSD_P2P_CLIENT
- * @lar_disable: disable LAR (regulatory), default = 0
- * @fw_monitor: allow to use firmware monitor
+ * @xvt_default_mode: xVT is the default operation mode, default = false
  * @disable_11ac: disable VHT capabilities, default = false.
+ * @disable_msix: disable MSI-X and fall back to MSI on PCIe, default = false.
  * @remove_when_gone: remove an inaccessible device from the PCIe bus.
  * @enable_ini: enable new FW debug infratructure (INI TLVs)
  */
@@ -130,19 +127,20 @@ struct iwl_mod_params {
 	int led_mode;
 	bool power_save;
 	int power_level;
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CPTCFG_IWLWIFI_DEBUG
 	u32 debug_level;
 #endif
-	int antenna_coupling;
+#if IS_ENABLED(CPTCFG_IWLXVT)
+	bool xvt_default_mode;
+#endif
 	char *nvm_file;
 	u32 uapsd_disable;
-	bool lar_disable;
-	bool fw_monitor;
 	bool disable_11ac;
 	/**
 	 * @disable_11ax: disable HE capabilities, default = false
 	 */
 	bool disable_11ax;
+	bool disable_msix;
 	bool remove_when_gone;
 	bool enable_ini;
 };

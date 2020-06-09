@@ -8,7 +8,7 @@
  * Copyright(c) 2003 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -31,7 +31,7 @@
  * Copyright(c) 2003 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -306,7 +306,7 @@ static void iwl_pcie_txq_inc_wr_ptr(struct iwl_trans *trans,
 			IWL_DEBUG_INFO(trans, "Tx queue %d requesting wakeup, GP1 = 0x%x\n",
 				       txq_id, reg);
 			iwl_set_bit(trans, CSR_GP_CNTRL,
-				    BIT(trans->trans_cfg->csr->flag_mac_access_req));
+				    CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
 			txq->need_update = true;
 			return;
 		}
@@ -624,12 +624,18 @@ void iwl_pcie_free_tso_page(struct iwl_trans_pcie *trans_pcie,
 			    struct sk_buff *skb)
 {
 	struct page **page_ptr;
+	struct page *next;
 
 	page_ptr = (void *)((u8 *)skb->cb + trans_pcie->page_offs);
+	next = *page_ptr;
+	*page_ptr = NULL;
 
-	if (*page_ptr) {
-		__free_page(*page_ptr);
-		*page_ptr = NULL;
+	while (next) {
+		struct page *tmp = next;
+
+		next = *(void **)(page_address(next) + PAGE_SIZE -
+				  sizeof(void *));
+		__free_page(tmp);
 	}
 }
 
@@ -646,7 +652,7 @@ static void iwl_pcie_clear_cmd_in_flight(struct iwl_trans *trans)
 
 	trans_pcie->cmd_hold_nic_awake = false;
 	__iwl_trans_pcie_clear_bit(trans, CSR_GP_CNTRL,
-				   BIT(trans->trans_cfg->csr->flag_mac_access_req));
+				   CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
 }
 
 /*
@@ -953,10 +959,10 @@ static int iwl_pcie_tx_alloc(struct iwl_trans *trans)
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 	u16 bc_tbls_size = trans->trans_cfg->base_params->num_of_queues;
 
-	bc_tbls_size *= (trans->trans_cfg->device_family >=
-			 IWL_DEVICE_FAMILY_22560) ?
-		sizeof(struct iwl_gen3_bc_tbl) :
-		sizeof(struct iwlagn_scd_bc_tbl);
+	if (WARN_ON(trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210))
+		return -EINVAL;
+
+	bc_tbls_size *= sizeof(struct iwlagn_scd_bc_tbl);
 
 	/*It is not allowed to alloc twice, so warn when this happens.
 	 * We cannot rely on the previous allocation, so free and fail */
@@ -1260,16 +1266,16 @@ static int iwl_pcie_set_cmd_in_flight(struct iwl_trans *trans,
 	if (trans->trans_cfg->base_params->apmg_wake_up_wa &&
 	    !trans_pcie->cmd_hold_nic_awake) {
 		__iwl_trans_pcie_set_bit(trans, CSR_GP_CNTRL,
-					 BIT(trans->trans_cfg->csr->flag_mac_access_req));
+					 CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
 
 		ret = iwl_poll_bit(trans, CSR_GP_CNTRL,
-				   BIT(trans->trans_cfg->csr->flag_val_mac_access_en),
-				   (BIT(trans->trans_cfg->csr->flag_mac_clock_ready) |
+				   CSR_GP_CNTRL_REG_VAL_MAC_ACCESS_EN,
+				   (CSR_GP_CNTRL_REG_FLAG_MAC_CLOCK_READY |
 				    CSR_GP_CNTRL_REG_FLAG_GOING_TO_SLEEP),
 				   15000);
 		if (ret < 0) {
 			__iwl_trans_pcie_clear_bit(trans, CSR_GP_CNTRL,
-					BIT(trans->trans_cfg->csr->flag_mac_access_req));
+					CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
 			IWL_ERR(trans, "Failed to wake NIC for hcmd\n");
 			return -EIO;
 		}
@@ -1286,7 +1292,7 @@ static int iwl_pcie_set_cmd_in_flight(struct iwl_trans *trans,
  * need to be reclaimed. As result, some free space forms.  If there is
  * enough free space (> low mark), wake the stack that feeds us.
  */
-void iwl_pcie_cmdq_reclaim(struct iwl_trans *trans, int txq_id, int idx)
+static void iwl_pcie_cmdq_reclaim(struct iwl_trans *trans, int txq_id, int idx)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 	struct iwl_txq *txq = trans_pcie->txq[txq_id];
@@ -1870,7 +1876,7 @@ void iwl_pcie_hcmd_complete(struct iwl_trans *trans,
 	spin_unlock_bh(&txq->lock);
 }
 
-#define HOST_COMPLETE_TIMEOUT	(2 * HZ)
+#define HOST_COMPLETE_TIMEOUT	(2 * HZ * CPTCFG_IWL_TIMEOUT_FACTOR)
 
 static int iwl_pcie_send_hcmd_async(struct iwl_trans *trans,
 				    struct iwl_host_cmd *cmd)
@@ -2006,6 +2012,21 @@ int iwl_trans_pcie_send_hcmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
 	return iwl_pcie_send_hcmd_sync(trans, cmd);
 }
 
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+static void iwl_trans_pci_tx_lat_add_ts_write(struct sk_buff *skb)
+{
+	s64 temp = ktime_to_ms(ktime_get());
+	s64 ts_1 = ktime_to_ns(skb->tstamp) >> 32;
+	s64 diff = temp - ts_1;
+
+#if LINUX_VERSION_IS_LESS(4,10,0)
+	skb->tstamp.tv64 += diff << 16;
+#else
+	skb->tstamp += diff << 16;
+#endif
+}
+#endif
+
 static int iwl_fill_data_tbs(struct iwl_trans *trans, struct sk_buff *skb,
 			     struct iwl_txq *txq, u8 hdr_len,
 			     struct iwl_cmd_meta *out_meta)
@@ -2025,9 +2046,8 @@ static int iwl_fill_data_tbs(struct iwl_trans *trans, struct sk_buff *skb,
 						    head_tb_len, DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(trans->dev, tb_phys)))
 			return -EINVAL;
-		trace_iwlwifi_dev_tx_tb(trans->dev, skb,
-					skb->data + hdr_len,
-					head_tb_len);
+		trace_iwlwifi_dev_tx_tb(trans->dev, skb, skb->data + hdr_len,
+					tb_phys, head_tb_len);
 		iwl_pcie_txq_build_tfd(trans, txq, tb_phys, head_tb_len, false);
 	}
 
@@ -2045,9 +2065,8 @@ static int iwl_fill_data_tbs(struct iwl_trans *trans, struct sk_buff *skb,
 
 		if (unlikely(dma_mapping_error(trans->dev, tb_phys)))
 			return -EINVAL;
-		trace_iwlwifi_dev_tx_tb(trans->dev, skb,
-					skb_frag_address(frag),
-					skb_frag_size(frag));
+		trace_iwlwifi_dev_tx_tb(trans->dev, skb, skb_frag_address(frag),
+					tb_phys, skb_frag_size(frag));
 		tb_idx = iwl_pcie_txq_build_tfd(trans, txq, tb_phys,
 						skb_frag_size(frag), false);
 		if (tb_idx < 0)
@@ -2060,17 +2079,34 @@ static int iwl_fill_data_tbs(struct iwl_trans *trans, struct sk_buff *skb,
 }
 
 #ifdef CONFIG_INET
-struct iwl_tso_hdr_page *get_page_hdr(struct iwl_trans *trans, size_t len)
+struct iwl_tso_hdr_page *get_page_hdr(struct iwl_trans *trans, size_t len,
+				      struct sk_buff *skb)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 	struct iwl_tso_hdr_page *p = this_cpu_ptr(trans_pcie->tso_hdr_page);
+	struct page **page_ptr;
+
+	page_ptr = (void *)((u8 *)skb->cb + trans_pcie->page_offs);
+
+	if (WARN_ON(*page_ptr))
+		return NULL;
 
 	if (!p->page)
 		goto alloc;
 
-	/* enough room on this page */
-	if (p->pos + len < (u8 *)page_address(p->page) + PAGE_SIZE)
-		return p;
+	/*
+	 * Check if there's enough room on this page
+	 *
+	 * Note that we put a page chaining pointer *last* in the
+	 * page - we need it somewhere, and if it's there then we
+	 * avoid DMA mapping the last bits of the page which may
+	 * trigger the 32-bit boundary hardware bug.
+	 *
+	 * (see also get_workaround_page() in tx-gen2.c)
+	 */
+	if (p->pos + len < (u8 *)page_address(p->page) + PAGE_SIZE -
+			   sizeof(void *))
+		goto out;
 
 	/* We don't have enough room on this page, get a new one. */
 	__free_page(p->page);
@@ -2080,6 +2116,11 @@ alloc:
 	if (!p->page)
 		return NULL;
 	p->pos = page_address(p->page);
+	/* set the chaining pointer to NULL */
+	*(void **)(page_address(p->page) + PAGE_SIZE - sizeof(void *)) = NULL;
+out:
+	*page_ptr = p->page;
+	get_page(p->page);
 	return p;
 }
 
@@ -2116,7 +2157,6 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
 	u16 length, iv_len, amsdu_pad;
 	u8 *start_hdr;
 	struct iwl_tso_hdr_page *hdr_page;
-	struct page **page_ptr;
 	struct tso_t tso;
 
 	/* if the packet is protected, then it must be CCMP or GCMP */
@@ -2139,14 +2179,11 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
 		(3 + snap_ip_tcp_hdrlen + sizeof(struct ethhdr)) + iv_len;
 
 	/* Our device supports 9 segments at most, it will fit in 1 page */
-	hdr_page = get_page_hdr(trans, hdr_room);
+	hdr_page = get_page_hdr(trans, hdr_room, skb);
 	if (!hdr_page)
 		return -ENOMEM;
 
-	get_page(hdr_page->page);
 	start_hdr = hdr_page->pos;
-	page_ptr = (void *)((u8 *)skb->cb + trans_pcie->page_offs);
-	*page_ptr = hdr_page->page;
 	memcpy(hdr_page->pos, skb->data + hdr_len, iv_len);
 	hdr_page->pos += iv_len;
 
@@ -2229,7 +2266,7 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
 		iwl_pcie_txq_build_tfd(trans, txq, hdr_tb_phys,
 				       hdr_tb_len, false);
 		trace_iwlwifi_dev_tx_tb(trans->dev, skb, start_hdr,
-					hdr_tb_len);
+					hdr_tb_phys, hdr_tb_len);
 		/* add this subframe's headers' length to the tx_cmd */
 		le16_add_cpu(&tx_cmd->len, hdr_page->pos - subf_hdrs_start);
 
@@ -2255,7 +2292,7 @@ static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
 			iwl_pcie_txq_build_tfd(trans, txq, tb_phys,
 					       size, false);
 			trace_iwlwifi_dev_tx_tb(trans->dev, skb, tso.data,
-						size);
+						tb_phys, size);
 
 			data_left -= size;
 			tso_build_data(skb, &tso, size);
@@ -2503,6 +2540,9 @@ int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
 	 * At this point the frame is "transmitted" successfully
 	 * and we will get a TX status notification eventually.
 	 */
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+	iwl_trans_pci_tx_lat_add_ts_write(skb);
+#endif
 	spin_unlock(&txq->lock);
 	return 0;
 out_err:

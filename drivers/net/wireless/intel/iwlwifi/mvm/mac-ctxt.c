@@ -5,10 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright(c) 2015 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -28,10 +27,9 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright(c) 2015 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -340,7 +338,8 @@ int iwl_mvm_mac_ctxt_init(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	mvmvif->time_event_data.id = TE_MAX;
 
 	/* No need to allocate data queues to P2P Device MAC and NAN.*/
-	if (vif->type == NL80211_IFTYPE_P2P_DEVICE)
+	if (vif->type == NL80211_IFTYPE_P2P_DEVICE ||
+	    vif->type == NL80211_IFTYPE_NAN)
 		return 0;
 
 	/* Allocate the CAB queue for softAP and GO interfaces */
@@ -612,7 +611,16 @@ static int iwl_mvm_mac_ctxt_cmd_sta(struct iwl_mvm *mvm,
 	if (vif->p2p) {
 		struct ieee80211_p2p_noa_attr *noa =
 			&vif->bss_conf.p2p_noa_attr;
-
+#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+		/*
+		 * Pass CT window including OPPPS enable flag as part of a WA
+		 * to pass P2P OPPPS certification test. Refer to
+		 * IWLMVM_P2P_OPPPS_TEST_WA description in Kconfig.noupstream.
+		 */
+		if (mvm->p2p_opps_test_wa_vif)
+			cmd.p2p_sta.ctwin = cpu_to_le32(noa->oppps_ctwindow);
+		else
+#endif
 		cmd.p2p_sta.ctwin = cpu_to_le32(noa->oppps_ctwindow &
 					IEEE80211_P2P_OPPPS_CTWINDOW_MASK);
 		ctxt_sta = &cmd.p2p_sta.sta;
@@ -704,8 +712,12 @@ static int iwl_mvm_mac_ctxt_cmd_sta(struct iwl_mvm *mvm,
 
 	if (vif->bss_conf.he_support && !iwlwifi_mod_params.disable_11ax) {
 		cmd.filter_flags |= cpu_to_le32(MAC_FILTER_IN_11AX);
-		if (vif->bss_conf.twt_requester && IWL_MVM_USE_TWT)
+		if (vif->bss_conf.twt_requester && IWL_MVM_USE_TWT) {
 			ctxt_sta->data_policy |= cpu_to_le32(TWT_SUPPORTED);
+			if (vif->bss_conf.twt_protected)
+				ctxt_sta->data_policy |=
+					cpu_to_le32(PROTECTED_TWT_SUPPORTED);
+		}
 	}
 
 
@@ -855,12 +867,14 @@ u8 iwl_mvm_mac_ctxt_get_lowest_rate(struct ieee80211_tx_info *info,
 				    struct ieee80211_vif *vif)
 {
 	u8 rate;
-
-	if (info->band == NL80211_BAND_5GHZ || vif->p2p)
-		rate = IWL_FIRST_OFDM_RATE;
-	else
+	if (info->band == NL80211_BAND_2GHZ && !vif->p2p)
 		rate = IWL_FIRST_CCK_RATE;
+	else
+		rate = IWL_FIRST_OFDM_RATE;
 
+#ifdef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
+	rate = IWL_FIRST_OFDM_RATE;
+#endif
 	return rate;
 }
 
@@ -886,13 +900,18 @@ static void iwl_mvm_mac_ctxt_set_tx(struct iwl_mvm *mvm,
 						TX_CMD_FLG_BT_PRIO_POS;
 	tx->tx_flags = cpu_to_le32(tx_flags);
 
+	/*
+	 * TODO: the firwmare advertises this, but has a bug. We should revert
+	 *	 this when the firmware will be fixed.
+	 */
 	if (!fw_has_capa(&mvm->fw->ucode_capa,
-			 IWL_UCODE_TLV_CAPA_BEACON_ANT_SELECTION))
+			 IWL_UCODE_TLV_CAPA_BEACON_ANT_SELECTION) || true) {
 		iwl_mvm_toggle_tx_ant(mvm, &mvm->mgmt_last_antenna_idx);
 
-	tx->rate_n_flags =
-		cpu_to_le32(BIT(mvm->mgmt_last_antenna_idx) <<
-			    RATE_MCS_ANT_POS);
+		tx->rate_n_flags =
+			cpu_to_le32(BIT(mvm->mgmt_last_antenna_idx) <<
+				    RATE_MCS_ANT_POS);
+	}
 
 	rate = iwl_mvm_mac_ctxt_get_lowest_rate(info, vif);
 
@@ -1021,7 +1040,9 @@ int iwl_mvm_mac_ctxt_send_beacon(struct iwl_mvm *mvm,
 			 IWL_UCODE_TLV_CAPA_CSA_AND_TBTT_OFFLOAD))
 		return iwl_mvm_mac_ctxt_send_beacon_v6(mvm, vif, beacon);
 
-	if (fw_has_api(&mvm->fw->ucode_capa,
+	/* TODO: remove first condition once FW merge new TLV */
+	if (iwl_mvm_has_new_tx_api(mvm) ||
+	    fw_has_api(&mvm->fw->ucode_capa,
 		       IWL_UCODE_TLV_API_NEW_BEACON_TEMPLATE))
 		return iwl_mvm_mac_ctxt_send_beacon_v9(mvm, vif, beacon);
 
@@ -1042,7 +1063,7 @@ int iwl_mvm_mac_ctxt_beacon_changed(struct iwl_mvm *mvm,
 	if (!beacon)
 		return -ENOMEM;
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	if (mvm->beacon_inject_active)
 		return -EBUSY;
 #endif
@@ -1226,6 +1247,9 @@ int iwl_mvm_mac_ctxt_add(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	int ret;
 
+	if (WARN_ON_ONCE(vif->type == NL80211_IFTYPE_NAN))
+		return -EOPNOTSUPP;
+
 	if (WARN_ONCE(mvmvif->uploaded, "Adding active MAC %pM/%d\n",
 		      vif->addr, ieee80211_vif_type_p2p(vif)))
 		return -EIO;
@@ -1247,6 +1271,9 @@ int iwl_mvm_mac_ctxt_changed(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 {
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 
+	if (WARN_ON_ONCE(vif->type == NL80211_IFTYPE_NAN))
+		return -EOPNOTSUPP;
+
 	if (WARN_ONCE(!mvmvif->uploaded, "Changing inactive MAC %pM/%d\n",
 		      vif->addr, ieee80211_vif_type_p2p(vif)))
 		return -EIO;
@@ -1260,6 +1287,9 @@ int iwl_mvm_mac_ctxt_remove(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	struct iwl_mac_ctx_cmd cmd;
 	int ret;
+
+	if (WARN_ON_ONCE(vif->type == NL80211_IFTYPE_NAN))
+		return -EOPNOTSUPP;
 
 	if (WARN_ONCE(!mvmvif->uploaded, "Removing inactive MAC %pM/%d\n",
 		      vif->addr, ieee80211_vif_type_p2p(vif)))
@@ -1404,6 +1434,7 @@ void iwl_mvm_rx_missed_beacons_notif(struct iwl_mvm *mvm,
 	u32 rx_missed_bcon, rx_missed_bcon_since_rx;
 	struct ieee80211_vif *vif;
 	u32 id = le32_to_cpu(mb->mac_id);
+	union iwl_dbg_tlv_tp_data tp_data = { .fw_pkt = pkt };
 
 	IWL_DEBUG_INFO(mvm,
 		       "missed bcn mac_id=%u, consecutive=%u (%u, %u, %u)\n",
@@ -1432,7 +1463,7 @@ void iwl_mvm_rx_missed_beacons_notif(struct iwl_mvm *mvm,
 		ieee80211_beacon_loss(vif);
 
 	iwl_dbg_tlv_time_point(&mvm->fwrt,
-			       IWL_FW_INI_TIME_POINT_MISSED_BEACONS, NULL);
+			       IWL_FW_INI_TIME_POINT_MISSED_BEACONS, &tp_data);
 
 	trigger = iwl_fw_dbg_trigger_on(&mvm->fwrt, ieee80211_vif_to_wdev(vif),
 					FW_DBG_TRIGGER_MISSED_BEACONS);
@@ -1607,5 +1638,28 @@ void iwl_mvm_channel_switch_noa_notif(struct iwl_mvm *mvm,
 		break;
 	}
 out_unlock:
+	rcu_read_unlock();
+}
+
+void iwl_mvm_rx_missed_vap_notif(struct iwl_mvm *mvm,
+				 struct iwl_rx_cmd_buffer *rxb)
+{
+	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	struct iwl_missed_vap_notif *mb = (void *)pkt->data;
+	struct ieee80211_vif *vif;
+	u32 id = le32_to_cpu(mb->mac_id);
+
+	IWL_DEBUG_INFO(mvm,
+		       "missed_vap notify mac_id=%u, num_beacon_intervals_elapsed=%u, profile_periodicity=%u\n",
+		       le32_to_cpu(mb->mac_id),
+		       mb->num_beacon_intervals_elapsed,
+		       mb->profile_periodicity);
+
+	rcu_read_lock();
+
+	vif = iwl_mvm_rcu_dereference_vif_id(mvm, id, true);
+	if (vif)
+		iwl_mvm_connection_loss(mvm, vif, "missed vap beacon");
+
 	rcu_read_unlock();
 }

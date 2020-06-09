@@ -7,7 +7,7 @@
  *
  * Copyright(c) 2013 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
- * Copyright (C) 2018 Intel Corporation
+ * Copyright (C) 2018-2019 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -29,7 +29,7 @@
  *
  * Copyright(c) 2013 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
- * Copyright (C) 2018 Intel Corporation
+ * Copyright (C) 2018-2019 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,7 +80,8 @@ static void iwl_mvm_bound_iface_iterator(void *_data, u8 *mac,
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 
 	if (vif == data->ignore_vif || !mvmvif->phy_ctxt ||
-	    vif->type == NL80211_IFTYPE_P2P_DEVICE)
+	    vif->type == NL80211_IFTYPE_P2P_DEVICE ||
+	    vif->type == NL80211_IFTYPE_NAN)
 		return;
 
 	data->num_active_macs++;
@@ -162,7 +163,9 @@ static void iwl_mvm_fill_sf_command(struct iwl_mvm *mvm,
 	 * capabilities of the AP station, and choose the watermark accordingly.
 	 */
 	if (sta) {
-		if (sta->ht_cap.ht_supported || sta->vht_cap.vht_supported) {
+		if (sta->ht_cap.ht_supported ||
+		    sta->vht_cap.vht_supported ||
+		    sta->he_cap.has_he) {
 			switch (sta->rx_nss) {
 			case 1:
 				watermark = SF_W_MARK_SISO;
@@ -286,7 +289,8 @@ int iwl_mvm_sf_update(struct iwl_mvm *mvm, struct ieee80211_vif *changed_vif,
 	 * vif is a p2p device.
 	 */
 	if (test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status) ||
-	    (changed_vif && changed_vif->type == NL80211_IFTYPE_P2P_DEVICE))
+	    (changed_vif && (changed_vif->type == NL80211_IFTYPE_P2P_DEVICE ||
+			     changed_vif->type == NL80211_IFTYPE_NAN)))
 		return 0;
 
 	ieee80211_iterate_active_interfaces_atomic(mvm->hw,

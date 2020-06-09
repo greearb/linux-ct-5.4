@@ -67,13 +67,19 @@
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
 
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#include "fw/testmode.h"
+#endif
+
 struct iwl_op_mode;
 struct iwl_trans;
 struct sk_buff;
 struct iwl_device_cmd;
+struct iwl_host_cmd;
 struct iwl_rx_cmd_buffer;
 struct iwl_fw;
 struct iwl_cfg;
+struct iwl_tm_data;
 
 /**
  * DOC: Operational mode - what is it ?
@@ -99,6 +105,26 @@ struct iwl_cfg;
  *	4) The op_mode is governed by mac80211
  *	5) The driver layer stops the op_mode
  */
+
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+/**
+ * struct iwl_test_ops: callback to the op mode
+ * @send_hcmd: Handler that sends host cmd in the specific op_mode. If this
+ *	handler is not registered then sending host cmd will not be supported.
+ * @cmd_exec: Handler that is used to execute user's test-mode commands.
+ *	It is optional. If this handler is not given, the default handler will
+ *	execute.
+ *
+ * The structure defines the callbacks that the op_mode should handle,
+ * inorder to handle logic that is out of the scope of iwl_test.
+ */
+struct iwl_test_ops {
+	int (*send_hcmd)(void *op_mode, struct iwl_host_cmd *host_cmd);
+	int (*cmd_exec)(struct iwl_testmode *testmode, u32 cmd,
+			struct iwl_tm_data *data_in,
+			struct iwl_tm_data *data_out, bool *cmd_supported);
+};
+#endif
 
 /**
  * struct iwl_op_mode_ops - op_mode specific operations
@@ -161,6 +187,9 @@ struct iwl_op_mode_ops {
 	void (*cmd_queue_full)(struct iwl_op_mode *op_mode);
 	void (*nic_config)(struct iwl_op_mode *op_mode);
 	void (*wimax_active)(struct iwl_op_mode *op_mode);
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+	struct iwl_test_ops test_ops;
+#endif
 };
 
 int iwl_opmode_register(const char *name, const struct iwl_op_mode_ops *ops);

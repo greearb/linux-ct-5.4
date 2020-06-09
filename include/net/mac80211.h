@@ -509,6 +509,7 @@ struct ieee80211_ftm_responder_params {
  *	mode only, set if the AP advertises TWT responder role)
  * @twt_responder: does this BSS support TWT requester (relevant for managed
  *	mode only, set if the AP advertises TWT responder role)
+ * @twt_protected: does this BSS support protected TWT frames
  * @assoc: association status
  * @ibss_joined: indicates whether this station is part of an IBSS
  *	or not
@@ -619,6 +620,7 @@ struct ieee80211_bss_conf {
 	bool he_support;
 	bool twt_requester;
 	bool twt_responder;
+	bool twt_protected;
 	/* association related data */
 	bool assoc, ibss_joined;
 	bool ibss_creator;
@@ -3101,7 +3103,12 @@ enum ieee80211_filter_flags {
  *
  * @IEEE80211_AMPDU_RX_START: start RX aggregation
  * @IEEE80211_AMPDU_RX_STOP: stop RX aggregation
- * @IEEE80211_AMPDU_TX_START: start TX aggregation
+ * @IEEE80211_AMPDU_TX_START: start TX aggregation, the driver must either
+ *	call ieee80211_start_tx_ba_cb_irqsafe() or
+ *	call ieee80211_start_tx_ba_cb_irqsafe() with status
+ *	%IEEE80211_AMPDU_TX_START_DELAY_ADDBA to delay addba after
+ *	ieee80211_start_tx_ba_cb_irqsafe is called, or just return the special
+ *	status %IEEE80211_AMPDU_TX_START_IMMEDIATE.
  * @IEEE80211_AMPDU_TX_OPERATIONAL: TX aggregation has become operational
  * @IEEE80211_AMPDU_TX_STOP_CONT: stop TX aggregation but continue transmitting
  *	queued packets, now unaggregated. After all packets are transmitted the
@@ -3124,6 +3131,9 @@ enum ieee80211_ampdu_mlme_action {
 	IEEE80211_AMPDU_TX_STOP_FLUSH_CONT,
 	IEEE80211_AMPDU_TX_OPERATIONAL,
 };
+
+#define IEEE80211_AMPDU_TX_START_IMMEDIATE 1
+#define IEEE80211_AMPDU_TX_START_DELAY_ADDBA 2
 
 /**
  * struct ieee80211_ampdu_params - AMPDU action parameters
@@ -3912,7 +3922,10 @@ struct ieee80211_ops {
 	 *
 	 * Even ``189`` would be wrong since 1 could be lost again.
 	 *
-	 * Returns a negative error code on failure.
+	 * Returns a negative error code on failure. The driver may return
+	 * %IEEE80211_AMPDU_TX_START_IMMEDIATE for %IEEE80211_AMPDU_TX_START
+	 * if the session can start immediately.
+	 *
 	 * The callback can sleep.
 	 */
 	int (*ampdu_action)(struct ieee80211_hw *hw,

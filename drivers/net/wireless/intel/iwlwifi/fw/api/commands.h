@@ -8,6 +8,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
+ * Copyright(c) 2018 - 2019 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -30,6 +31,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016 - 2017 Intel Deutschland GmbH
+ * Copyright(c) 2018 - 2019 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,6 +85,7 @@
  *	&enum iwl_prot_offload_subcmd_ids
  * @REGULATORY_AND_NVM_GROUP: regulatory/NVM group, uses command IDs from
  *	&enum iwl_regulatory_and_nvm_subcmd_ids
+ * @XVT_GROUP: XVT group, uses command IDs from &enum iwl_xvt_subcmd_ids
  * @DEBUG_GROUP: Debug group, uses command IDs from &enum iwl_debug_cmds
  */
 enum iwl_mvm_command_groups {
@@ -96,6 +99,7 @@ enum iwl_mvm_command_groups {
 	LOCATION_GROUP = 0x8,
 	PROT_OFFLOAD_GROUP = 0xb,
 	REGULATORY_AND_NVM_GROUP = 0xc,
+	XVT_GROUP = 0xe,
 	DEBUG_GROUP = 0xf,
 };
 
@@ -284,6 +288,11 @@ enum iwl_legacy_cmds {
 	NON_QOS_TX_COUNTER_CMD = 0x2d,
 
 	/**
+	 * @FIPS_TEST_VECTOR_CMD: command is &struct iwl_fips_test_cmd
+	 */
+	FIPS_TEST_VECTOR_CMD = 0x3b,
+
+	/**
 	 * @LEDS_CMD: command is &struct iwl_led_cmd
 	 */
 	LEDS_CMD = 0x48,
@@ -352,6 +361,11 @@ enum iwl_legacy_cmds {
 	 * @PHY_DB_CMD: &struct iwl_phy_db_cmd
 	 */
 	PHY_DB_CMD = 0x6c,
+
+	/**
+	 * @CONFIG_2G_COEX_CMD: &struct iwl_config_2g_coex_cmd
+	 */
+	CONFIG_2G_COEX_CMD = 0x71,
 
 	/**
 	 * @POWER_TABLE_CMD: &struct iwl_device_power_cmd
@@ -647,6 +661,11 @@ enum iwl_system_subcmd_ids {
 	SHARED_MEM_CFG_CMD = 0x0,
 
 	/**
+	 * @SOC_CONFIGURATION_CMD: &struct iwl_soc_configuration_cmd
+	 */
+	SOC_CONFIGURATION_CMD = 0x01,
+
+	/**
 	 * @INIT_EXTENDED_CFG_CMD: &struct iwl_init_extended_cfg_cmd
 	 */
 	INIT_EXTENDED_CFG_CMD = 0x03,
@@ -655,6 +674,24 @@ enum iwl_system_subcmd_ids {
 	 * @FW_ERROR_RECOVERY_CMD: &struct iwl_fw_error_recovery_cmd
 	 */
 	FW_ERROR_RECOVERY_CMD = 0x7,
+};
+
+/**
+ * enum iwl_xvt_subcmd_ids - XVT group command IDs
+ */
+enum iwl_xvt_subcmd_ids {
+	/**
+	 * @RUN_TIME_CALIB_DONE_NOTIF : Notification about
+	 * runtime calib finished
+	 * Handled by user space component
+	 */
+	RUN_TIME_CALIB_DONE_NOTIF = 0xFE,
+
+	/**
+	 * @IQ_CALIB_CONFIG_NOTIF : Notification about IQ calibration finished
+	 * Handled by user space component
+	 */
+	IQ_CALIB_CONFIG_NOTIF = 0xFF,
 };
 
 #endif /* __iwl_fw_api_commands_h__ */

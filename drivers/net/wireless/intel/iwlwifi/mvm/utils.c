@@ -5,10 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2015 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -28,10 +27,9 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * Copyright (C) 2015 - 2017 Intel Deutschland GmbH
- * Copyright(c) 2018 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,7 +76,7 @@ int iwl_mvm_send_cmd(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd)
 {
 	int ret;
 
-#if defined(CONFIG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
+#if defined(CPTCFG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
 	if (WARN_ON(mvm->d3_test_active))
 		return -EIO;
 #endif
@@ -132,7 +130,7 @@ int iwl_mvm_send_cmd_status(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd,
 
 	lockdep_assert_held(&mvm->mutex);
 
-#if defined(CONFIG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
+#if defined(CPTCFG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
 	if (WARN_ON(mvm->d3_test_active))
 		return -EIO;
 #endif
@@ -217,7 +215,7 @@ int iwl_mvm_legacy_rate_to_mac80211_idx(u32 rate_n_flags,
 	int band_offset = 0;
 
 	/* Legacy rate format, search for match in table */
-	if (band == NL80211_BAND_5GHZ)
+	if (band != NL80211_BAND_2GHZ)
 		band_offset = IWL_FIRST_OFDM_RATE;
 	for (idx = band_offset; idx < IWL_RATE_COUNT_LEGACY; idx++)
 		if (fw_rate_idx_to_plcp[idx] == rate)
@@ -588,6 +586,23 @@ static void iwl_mvm_dump_lmac_error_log(struct iwl_mvm *mvm, u8 lmac_num)
 	IWL_ERR(mvm, "0x%08X | flow_handler\n", table.flow_handler);
 }
 
+static void iwl_mvm_dump_iml_error_log(struct iwl_mvm *mvm)
+{
+	struct iwl_trans *trans = mvm->trans;
+	u32 error;
+
+	error = iwl_read_umac_prph(trans, UMAG_SB_CPU_2_STATUS);
+
+	IWL_ERR(trans, "IML/ROM dump:\n");
+
+	if (error & 0xFFFF0000)
+		IWL_ERR(trans, "IML/ROM SYSASSERT:\n");
+
+	IWL_ERR(mvm, "0x%08X | IML/ROM error/state\n", error);
+	IWL_ERR(mvm, "0x%08X | IML/ROM data1\n",
+		iwl_read_umac_prph(trans, UMAG_SB_CPU_1_STATUS));
+}
+
 void iwl_mvm_dump_nic_error_log(struct iwl_mvm *mvm)
 {
 	if (!test_bit(STATUS_DEVICE_ENABLED, &mvm->trans->status)) {
@@ -602,6 +617,9 @@ void iwl_mvm_dump_nic_error_log(struct iwl_mvm *mvm)
 		iwl_mvm_dump_lmac_error_log(mvm, 1);
 
 	iwl_mvm_dump_umac_error_log(mvm);
+
+	if (mvm->trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210)
+		iwl_mvm_dump_iml_error_log(mvm);
 
 	iwl_fw_error_print_fseq_regs(&mvm->fwrt);
 }
@@ -820,6 +838,10 @@ int iwl_mvm_update_low_latency(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 
 	iwl_mvm_bt_coex_vif_change(mvm);
 
+#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+	iwl_mvm_send_tcm_event(mvm, vif);
+#endif
+
 	return iwl_mvm_power_update_mac(mvm);
 }
 
@@ -952,8 +974,7 @@ unsigned int iwl_mvm_get_wd_timeout(struct iwl_mvm *mvm,
 				IWL_UCODE_TLV_CAPA_STA_PM_NOTIF) &&
 		    vif && vif->type == NL80211_IFTYPE_AP)
 			return IWL_WATCHDOG_DISABLED;
-		return iwlmvm_mod_params.tfd_q_hang_detect ?
-			default_timeout : IWL_WATCHDOG_DISABLED;
+		return default_timeout;
 	}
 
 	trigger = iwl_fw_dbg_get_trigger(mvm->fw, FW_DBG_TRIGGER_TXQ_TIMERS);
@@ -1084,6 +1105,9 @@ static void iwl_mvm_tcm_iter(void *_data, u8 *mac, struct ieee80211_vif *vif)
 		iwl_mvm_update_low_latency(mvm, vif, low_latency,
 					   LOW_LATENCY_TRAFFIC);
 	} else {
+#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+		iwl_mvm_send_tcm_event(mvm, vif);
+#endif
 		iwl_mvm_update_quotas(mvm, false, NULL);
 	}
 
@@ -1102,6 +1126,12 @@ static void iwl_mvm_tcm_results(struct iwl_mvm *mvm)
 	ieee80211_iterate_active_interfaces(
 		mvm->hw, IEEE80211_IFACE_ITER_NORMAL,
 		iwl_mvm_tcm_iter, &data);
+
+#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+	/* send global only */
+	if (mvm->tcm.result.global_change && !data.any_sent)
+		iwl_mvm_send_tcm_event(mvm, NULL);
+#endif
 
 	if (fw_has_capa(&mvm->fw->ucode_capa, IWL_UCODE_TLV_CAPA_UMAC_SCAN))
 		iwl_mvm_config_scan(mvm);
@@ -1275,11 +1305,12 @@ static unsigned long iwl_mvm_calc_tcm_stats(struct iwl_mvm *mvm,
 		if (!mvm->tcm.result.low_latency[mac] && handle_uapsd)
 			iwl_mvm_check_uapsd_agg_expected_tpt(mvm, uapsd_elapsed,
 							     mac);
+
 		/* clear old data */
-		if (handle_uapsd)
-			mdata->uapsd_nonagg_detect.rx_bytes = 0;
 		memset(&mdata->rx.airtime, 0, sizeof(mdata->rx.airtime));
 		memset(&mdata->tx.airtime, 0, sizeof(mdata->tx.airtime));
+		if (handle_uapsd)
+			mdata->uapsd_nonagg_detect.rx_bytes = 0;
 	}
 
 	load = iwl_mvm_tcm_load(mvm, total_airtime, elapsed);
@@ -1452,10 +1483,48 @@ void iwl_mvm_get_sync_time(struct iwl_mvm *mvm, u32 *gp2, u64 *boottime)
 	}
 
 	*gp2 = iwl_mvm_get_systime(mvm);
-	*boottime = ktime_get_boottime_ns();
+	*boottime = ktime_get_boot_ns();
 
 	if (!ps_disabled) {
 		mvm->ps_disabled = ps_disabled;
 		iwl_mvm_power_update_device(mvm);
 	}
 }
+
+#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+int iwl_mvm_send_csi_cmd(struct iwl_mvm *mvm)
+{
+	/*
+	 * Note: v1 and v2 are compatible, except for the
+	 * reserved value and the new flag, both of which
+	 * are ignored by older FW, and the additional
+	 * fields which we need to strip.
+	 */
+	struct iwl_channel_estimation_cfg cfg = {
+		.flags = cpu_to_le32(mvm->csi_cfg.flags),
+		.timer = cpu_to_le32(mvm->csi_cfg.timer),
+		.count = cpu_to_le32(mvm->csi_cfg.count),
+		.frame_types = cpu_to_le64(mvm->csi_cfg.frame_types),
+		.rate_n_flags_val = cpu_to_le32(mvm->csi_cfg.rate_n_flags_val),
+		.rate_n_flags_mask =
+			cpu_to_le32(mvm->csi_cfg.rate_n_flags_mask),
+		.min_time_between_collection =
+			cpu_to_le32(mvm->csi_cfg.interval),
+		.num_filter_addrs = cpu_to_le32(mvm->csi_cfg.num_filter_addrs),
+	};
+	u32 id = iwl_cmd_id(CHEST_COLLECTOR_FILTER_CONFIG_CMD,
+			    DATA_PATH_GROUP, 0);
+	unsigned int size = sizeof(cfg);
+	int i;
+
+	for (i = 0; i < mvm->csi_cfg.num_filter_addrs; i++)
+		ether_addr_copy(cfg.filter_addrs[i].addr,
+				mvm->csi_cfg.filter_addrs[i].addr);
+
+	if (!fw_has_capa(&mvm->fw->ucode_capa,
+			 IWL_UCODE_TLV_CAPA_CSI_REPORTING_V2))
+		size = sizeof(struct iwl_channel_estimation_cfg_v1);
+
+	return iwl_mvm_send_cmd_pdu(mvm, id, 0, size, &cfg);
+}
+#endif /* CPTCFG_IWLMVM_VENDOR_CMDS */

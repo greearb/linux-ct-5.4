@@ -402,4 +402,31 @@ static inline int genl_has_listeners(const struct genl_family *family,
 	group = family->mcgrp_offset + group;
 	return netlink_has_listeners(net->genl_sock, group);
 }
+
+/* this is for patches we apply */
+static inline struct netlink_ext_ack *genl_info_extack(struct genl_info *info)
+{
+//#if LINUX_VERSION_IS_GEQ(4,12,0) && RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(7,6)
+//        return info->extack;
+//#else
+        return info->userhdr;
+//#endif
+}
+
+/* this is for patches we apply */
+static inline struct netlink_ext_ack *genl_callback_extack(struct netlink_callback *cb)
+{
+//#if LINUX_VERSION_IS_GEQ(4,20,0)
+        return cb->extack;
+//#else
+//        return NULL;
+//#endif
+}
+
+/* this gets put in place of info->userhdr, since we use that above */
+static inline void *genl_info_userhdr(struct genl_info *info)
+{
+        return (u8 *)info->genlhdr + GENL_HDRLEN;
+}
+
 #endif	/* __NET_GENERIC_NETLINK_H */

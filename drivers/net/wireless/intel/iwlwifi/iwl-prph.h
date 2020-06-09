@@ -5,10 +5,9 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016        Intel Deutschland GmbH
- * Copyright (C) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2005 - 2014, 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -28,10 +27,9 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * Copyright(c) 2016        Intel Deutschland GmbH
- * Copyright (C) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2005 - 2014, 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,6 +251,7 @@
 #define SCD_QUEUE_CTX_REG2_VAL(_n, _v)		FIELD_PREP(SCD_QUEUE_CTX_REG2_ ## _n, _v)
 
 #define SCD_GP_CTRL_ENABLE_31_QUEUES		BIT(0)
+#define SCD_GP_CTRL_DRAM_BC_TABLE_DUP_DIS	BIT(16)
 #define SCD_GP_CTRL_AUTO_ACTIVE_MODE		BIT(18)
 
 /* Context Data */
@@ -287,6 +286,7 @@
 #define SCD_CHAINEXT_EN		(SCD_BASE + 0x244)
 #define SCD_AGGR_SEL		(SCD_BASE + 0x248)
 #define SCD_INTERRUPT_MASK	(SCD_BASE + 0x108)
+#define SCD_CB_SIZE		(SCD_BASE + 0x1a4)
 #define SCD_GP_CTRL		(SCD_BASE + 0x1a8)
 #define SCD_EN_CTRL		(SCD_BASE + 0x254)
 
@@ -326,6 +326,7 @@
 #define RXF_SIZE_BYTE_CND_POS		(7)
 #define RXF_SIZE_BYTE_CNT_MSK		(0x3ff << RXF_SIZE_BYTE_CND_POS)
 #define RXF_DIFF_FROM_PREV		(0x200)
+#define RXF2C_DIFF_FROM_PREV		(0x4e00)
 
 #define RXF_LD_FENCE_OFFSET_ADDR	(0xa00c10)
 #define RXF_FIFO_RD_FENCE_ADDR		(0xa00c0c)
@@ -374,12 +375,19 @@
 #define DBGC_CUR_DBGBUF_STATUS			(0xd03c1c)
 #define DBGC_DBGBUF_WRAP_AROUND			(0xd03c2c)
 #define DBGC_CUR_DBGBUF_STATUS_OFFSET_MSK	(0x00ffffff)
+#define DBGC_CUR_DBGBUF_STATUS_IDX_MSK		(0x0f000000)
 
 #define MON_DMARB_RD_CTL_ADDR		(0xa03c60)
 #define MON_DMARB_RD_DATA_ADDR		(0xa03c5c)
 
 #define DBGC_IN_SAMPLE			(0xa03c00)
 #define DBGC_OUT_CTRL			(0xa03c0c)
+
+/* M2S registers */
+#define LDBG_M2S_BUF_WPTR			(0xa0476c)
+#define LDBG_M2S_BUF_WRAP_CNT			(0xa04774)
+#define LDBG_M2S_BUF_WPTR_VAL_MSK		(0x000fffff)
+#define LDBG_M2S_BUF_WRAP_CNT_VAL_MSK		(0x000fffff)
 
 /* enable the ID buf for read */
 #define WFPM_PS_CTL_CLR			0xA0300C
@@ -404,13 +412,6 @@ enum {
 	HW_STEP_LOCATION_BITS = 24,
 };
 
-#define AUX_MISC_MASTER1_EN		0xA20818
-enum aux_misc_master1_en {
-	AUX_MISC_MASTER1_EN_SBE_MSK	= 0x1,
-};
-
-#define AUX_MISC_MASTER1_SMPHR_STATUS	0xA20800
-#define RSA_ENABLE			0xA24B08
 #define PREG_AUX_BUS_WPROT_0		0xA04CC0
 
 /* device family 9000 WPROT register */
@@ -418,11 +419,18 @@ enum aux_misc_master1_en {
 /* device family 22000 WPROT register */
 #define PREG_PRPH_WPROT_22000		0xA04D00
 
+#define SB_CFG_OVERRIDE_ADDR		0xA26C78
+#define SB_CFG_OVERRIDE_ENABLE		0x8000
+#define SB_CFG_BASE_OVERRIDE		0xA20000
+#define SB_MODIFY_CFG_FLAG		0xA03088
 #define SB_CPU_1_STATUS			0xA01E30
 #define SB_CPU_2_STATUS			0xA01E34
 #define UMAG_SB_CPU_1_STATUS		0xA038C0
 #define UMAG_SB_CPU_2_STATUS		0xA038C4
 #define UMAG_GEN_HW_STATUS		0xA038C8
+#define UREG_UMAC_CURRENT_PC		0xa05c18
+#define UREG_LMAC1_CURRENT_PC		0xa05c1c
+#define UREG_LMAC2_CURRENT_PC		0xa05c20
 
 /* For UMAG_GEN_HW_STATUS reg check */
 enum {
@@ -435,15 +443,12 @@ enum {
 	LMPM_CHICK_EXTENDED_ADDR_SPACE = BIT(0),
 };
 
-/* FW chicken bits */
-#define LMPM_PAGE_PASS_NOTIF			0xA03824
-enum {
-	LMPM_PAGE_PASS_NOTIF_POS = BIT(20),
-};
-
 #define UREG_CHICK		(0xA05C00)
 #define UREG_CHICK_MSI_ENABLE	BIT(24)
 #define UREG_CHICK_MSIX_ENABLE	BIT(25)
+
+#define SD_REG_VER			0xA29600
+#define REG_VER_RF_ID_JF		0x4900
 
 #define HPM_DEBUG			0xA03440
 #define PERSISTENCE_BIT			BIT(12)

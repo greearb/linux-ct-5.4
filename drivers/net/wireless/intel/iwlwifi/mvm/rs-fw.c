@@ -195,14 +195,20 @@ rs_fw_vht_set_enabled_rates(const struct ieee80211_sta *sta,
 {
 	u16 supp;
 	int i, highest_mcs;
-	u8 nss = sta->rx_nss;
+	u8 max_nss = sta->rx_nss;
+	struct ieee80211_vht_cap ieee_vht_cap = {
+		.vht_cap_info = cpu_to_le32(vht_cap->cap),
+		.supp_mcs = vht_cap->vht_mcs,
+	};
 
 	/* the station support only a single receive chain */
 	if (sta->smps_mode == IEEE80211_SMPS_STATIC)
-		nss = 1;
+		max_nss = 1;
 
-	for (i = 0; i < nss && i < IWL_TLC_NSS_MAX; i++) {
-		highest_mcs = rs_fw_vht_highest_rx_mcs_index(vht_cap, i + 1);
+	for (i = 0; i < max_nss && i < IWL_TLC_NSS_MAX; i++) {
+		int nss = i + 1;
+
+		highest_mcs = rs_fw_vht_highest_rx_mcs_index(vht_cap, nss);
 		if (!highest_mcs)
 			continue;
 
@@ -211,7 +217,15 @@ rs_fw_vht_set_enabled_rates(const struct ieee80211_sta *sta,
 			supp &= ~BIT(IWL_TLC_MNG_HT_RATE_MCS9);
 
 		cmd->ht_rates[i][IWL_TLC_HT_BW_NONE_160] = cpu_to_le16(supp);
-		if (sta->bandwidth == IEEE80211_STA_RX_BW_160)
+		/*
+		 * Check if VHT extended NSS indicates that the bandwidth/NSS
+		 * configuration is supported - only for MCS 0 since we already
+		 * decoded the MCS bits anyway ourselves.
+		 */
+		if (sta->bandwidth == IEEE80211_STA_RX_BW_160 &&
+		    ieee80211_get_vht_max_nss(&ieee_vht_cap,
+					      IEEE80211_VHT_CHANWIDTH_160MHZ,
+					      0, true, nss) >= nss)
 			cmd->ht_rates[i][IWL_TLC_HT_BW_160] =
 				cmd->ht_rates[i][IWL_TLC_HT_BW_NONE_160];
 	}
@@ -358,9 +372,11 @@ void iwl_mvm_tlc_update_notif(struct iwl_mvm *mvm,
 	lq_sta = &mvmsta->lq_sta.rs_fw;
 
 	if (flags & IWL_TLC_NOTIF_FLAG_RATE) {
+		char pretty_rate[100];
 		lq_sta->last_rate_n_flags = le32_to_cpu(notif->rate);
-		IWL_DEBUG_RATE(mvm, "new rate_n_flags: 0x%X\n",
-			       lq_sta->last_rate_n_flags);
+		rs_pretty_print_rate(pretty_rate, sizeof(pretty_rate),
+				     lq_sta->last_rate_n_flags);
+		IWL_DEBUG_RATE(mvm, "new rate: %s\n", pretty_rate);
 	}
 
 	if (flags & IWL_TLC_NOTIF_FLAG_AMSDU && !mvmsta->orig_amsdu_len) {
@@ -402,7 +418,7 @@ out:
 	rcu_read_unlock();
 }
 
-static u16 rs_fw_get_max_amsdu_len(struct ieee80211_sta *sta)
+u16 rs_fw_get_max_amsdu_len(struct ieee80211_sta *sta)
 {
 	const struct ieee80211_sta_vht_cap *vht_cap = &sta->vht_cap;
 	const struct ieee80211_sta_ht_cap *ht_cap = &sta->ht_cap;
@@ -415,8 +431,7 @@ static u16 rs_fw_get_max_amsdu_len(struct ieee80211_sta *sta)
 			return IEEE80211_MAX_MPDU_LEN_VHT_7991;
 		default:
 			return IEEE80211_MAX_MPDU_LEN_VHT_3895;
-	}
-
+		}
 	} else if (ht_cap->ht_supported) {
 		if (ht_cap->cap & IEEE80211_HT_CAP_MAX_AMSDU)
 			/*
@@ -456,10 +471,24 @@ void rs_fw_rate_init(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
 
 	memset(lq_sta, 0, offsetof(typeof(*lq_sta), pers));
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
 	iwl_mvm_reset_frame_stats(mvm);
 #endif
 	rs_fw_set_supp_rates(sta, sband, &cfg_cmd);
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	/*
+	 * if AP disables mimo on 160bw
+	 * (!cfg_cmd.ht_rates[IWL_TLC_NSS_2][IWL_TLC_HT_BW_160])
+	 * and AP enables siso on 160
+	 * cfg_cmd.ht_rates[IWL_TLC_NSS_1][IWL_TLC_HT_BW_160]
+	 * we disable mimo on 80bw cmd->ht_rates[1][0]
+	 */
+	if (mvm->trans->dbg_cfg.tx_siso_80bw_like_160bw &&
+	    cfg_cmd.ht_rates[IWL_TLC_NSS_1][IWL_TLC_HT_BW_160] &&
+	    !cfg_cmd.ht_rates[IWL_TLC_NSS_2][IWL_TLC_HT_BW_160])
+		cfg_cmd.ht_rates[IWL_TLC_NSS_2][IWL_TLC_HT_BW_NONE_160] = 0;
+
+#endif
 
 	/*
 	 * since TLC offload works with one mode we can assume
@@ -471,14 +500,6 @@ void rs_fw_rate_init(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
 				   &cfg_cmd);
 	if (ret)
 		IWL_ERR(mvm, "Failed to send rate scale config (%d)\n", ret);
-}
-
-int rs_fw_tx_protection(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,
-			bool enable)
-{
-	/* TODO: need to introduce a new FW cmd since LQ cmd is not relevant */
-	IWL_DEBUG_RATE(mvm, "tx protection - not implemented yet.\n");
-	return 0;
 }
 
 void iwl_mvm_rs_add_sta(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta)
@@ -494,7 +515,15 @@ void iwl_mvm_rs_add_sta(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta)
 	lq_sta->pers.last_rssi = S8_MIN;
 	lq_sta->last_rate_n_flags = 0;
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CPTCFG_MAC80211_DEBUGFS
 	lq_sta->pers.dbg_fixed_rate = 0;
 #endif
+}
+
+int rs_fw_tx_protection(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,
+			bool enable)
+{
+	/* TODO: need to introduce a new FW cmd since LQ cmd is not relevant */
+	IWL_DEBUG_RATE(mvm, "tx protection - not implemented yet.\n");
+	return 0;
 }

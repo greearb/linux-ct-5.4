@@ -5,9 +5,8 @@
  *
  * GPL LICENSE SUMMARY
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2017        Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -27,9 +26,8 @@
  *
  * BSD LICENSE
  *
- * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2017        Intel Deutschland GmbH
- * Copyright(c) 2018 - 2019 Intel Corporation
+ * Copyright(c) 2012 - 2014, 2018 - 2020 Intel Corporation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -188,9 +186,17 @@ struct iwl_mac_data_ibss {
 /**
  * enum iwl_mac_data_policy - policy of the data path for this MAC
  * @TWT_SUPPORTED: twt is supported
+ * @MORE_DATA_ACK_SUPPORTED: AP supports More Data Ack according to
+ *	paragraph 9.4.1.17 in P802.11ax_D4 specification. Used for TWT
+ *	early termination detection.
+ * @FLEXIBLE_TWT_SUPPORTED: AP supports flexible TWT schedule
+ * @PROTECTED_TWT_SUPPORTED: AP supports protected TWT frames (with 11w)
  */
 enum iwl_mac_data_policy {
-	TWT_SUPPORTED	= BIT(0),
+	TWT_SUPPORTED = BIT(0),
+	MORE_DATA_ACK_SUPPORTED = BIT(1),
+	FLEXIBLE_TWT_SUPPORTED = BIT(2),
+	PROTECTED_TWT_SUPPORTED = BIT(3),
 };
 
 /**
@@ -476,7 +482,7 @@ enum iwl_he_pkt_ext_constellations {
  *	For rates between low_th and high_th, need 8us PPE
  *	For rates equal or higher then the high_th, need 16us PPE
  *	Nss (0-siso, 1-mimo2) x BW (0-20MHz, 1-40MHz, 2-80MHz, 3-160MHz) x
- *		(0-low_th, 1-high_th)
+ *	(0-low_th, 1-high_th)
  */
 struct iwl_he_pkt_ext {
 	u8 pkt_ext_qam_th[MAX_HE_SUPP_NSS][MAX_HE_CHANNEL_BW_INDX][2];
@@ -500,6 +506,10 @@ struct iwl_he_pkt_ext {
  *	enabled AGG, i.e. both BACK and non-BACK frames in a single AGG
  * @STA_CTXT_HE_MU_EDCA_CW: indicates that there is an element of MU EDCA
  *	parameter set, i.e. the backoff counters for trig-based ACs
+ * @STA_CTXT_HE_NIC_NOT_ACK_ENABLED: mark that the NIC doesn't support receiving
+ *	ACK-enabled AGG, (i.e. both BACK and non-BACK frames in single AGG).
+ *	If the NIC is not ACK_ENABLED it may use the EOF-bit in first non-0
+ *	len delim to determine if AGG or single.
  * @STA_CTXT_HE_RU_2MHZ_BLOCK: indicates that 26-tone RU OFDMA transmission are
  *      not allowed (as there are OBSS that might classify such transmissions as
  *      radar pulses).
@@ -514,6 +524,7 @@ enum iwl_he_sta_ctxt_flags {
 	STA_CTXT_HE_CONST_TRIG_RND_ALLOC	= BIT(10),
 	STA_CTXT_HE_ACK_ENABLED			= BIT(11),
 	STA_CTXT_HE_MU_EDCA_CW			= BIT(12),
+	STA_CTXT_HE_NIC_NOT_ACK_ENABLED		= BIT(13),
 	STA_CTXT_HE_RU_2MHZ_BLOCK		= BIT(14),
 };
 

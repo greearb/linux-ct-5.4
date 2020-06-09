@@ -23,7 +23,7 @@
  * in the file called COPYING.
  *
  * Contact Information:
- *  Intel Linux Wireless <ilw@linux.intel.com>
+ *  Intel Linux Wireless <linuxwifi@intel.com>
  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
  *
  * BSD LICENSE
@@ -271,8 +271,7 @@ static void iwl_mvm_add_rtap_sniffer_config(struct iwl_mvm *mvm,
 static void iwl_mvm_pass_packet_to_mac80211(struct iwl_mvm *mvm,
 					    struct napi_struct *napi,
 					    struct sk_buff *skb, int queue,
-					    struct ieee80211_sta *sta,
-					    bool csi)
+					    struct ieee80211_sta *sta)
 {
 	if (iwl_mvm_check_pn(mvm, skb, queue, sta))
 		kfree_skb(skb);
@@ -514,17 +513,14 @@ static bool iwl_mvm_is_sn_less(u16 sn1, u16 sn2, u16 buffer_size)
 
 static void iwl_mvm_sync_nssn(struct iwl_mvm *mvm, u8 baid, u16 nssn)
 {
-	if (IWL_MVM_USE_NSSN_SYNC) {
-		struct iwl_mvm_rss_sync_notif notif = {
-			.metadata.type = IWL_MVM_RXQ_NSSN_SYNC,
-			.metadata.sync = 0,
-			.nssn_sync.baid = baid,
-			.nssn_sync.nssn = nssn,
-		};
+	struct iwl_mvm_rss_sync_notif notif = {
+		.metadata.type = IWL_MVM_RXQ_NSSN_SYNC,
+		.metadata.sync = 0,
+		.nssn_sync.baid = baid,
+		.nssn_sync.nssn = nssn,
+	};
 
-		iwl_mvm_sync_rx_queues_internal(mvm, (void *)&notif,
-						sizeof(notif));
-	}
+	iwl_mvm_sync_rx_queues_internal(mvm, (void *)&notif, sizeof(notif));
 }
 
 #define RX_REORDER_BUF_TIMEOUT_MQ (HZ / 10)
@@ -582,7 +578,7 @@ static void iwl_mvm_release_frames(struct iwl_mvm *mvm,
 		while ((skb = __skb_dequeue(skb_list))) {
 			iwl_mvm_pass_packet_to_mac80211(mvm, napi, skb,
 							reorder_buf->queue,
-							sta, false);
+							sta);
 			reorder_buf->num_stored--;
 		}
 	}
@@ -1545,6 +1541,19 @@ static void iwl_mvm_decode_lsig(struct sk_buff *skb,
 	}
 }
 
+static inline u8 iwl_mvm_nl80211_band_from_rx_msdu(u8 phy_band)
+{
+	switch (phy_band) {
+	case PHY_BAND_24:
+		return NL80211_BAND_2GHZ;
+	case PHY_BAND_5:
+		return NL80211_BAND_5GHZ;
+	default:
+		WARN_ONCE(1, "Unsupported phy band (%u)\n", phy_band);
+		return NL80211_BAND_5GHZ;
+	}
+}
+
 void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 			struct iwl_rx_cmd_buffer *rxb, int queue)
 {
@@ -1563,12 +1572,11 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		.d4 = desc->phy_data4,
 		.info_type = IWL_RX_PHY_INFO_TYPE_NONE,
 	};
-	bool csi = false;
 
 	if (unlikely(test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status)))
 		return;
 
-	if (mvm->trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_22560) {
+	if (mvm->trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210) {
 		rate_n_flags = le32_to_cpu(desc->v3.rate_n_flags);
 		channel = desc->v3.channel;
 		gp2_on_air_rise = le32_to_cpu(desc->v3.gp2_on_air_rise);
@@ -1642,8 +1650,6 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 
 	iwl_mvm_decode_lsig(skb, &phy_data);
 
-	rx_status = IEEE80211_SKB_RXCB(skb);
-
 	if (iwl_mvm_rx_crypto(mvm, hdr, rx_status, phy_info, desc,
 			      le32_to_cpu(pkt->len_n_flags), queue,
 			      &crypt_len)) {
@@ -1670,7 +1676,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		u64 tsf_on_air_rise;
 
 		if (mvm->trans->trans_cfg->device_family >=
-		    IWL_DEVICE_FAMILY_22560)
+		    IWL_DEVICE_FAMILY_AX210)
 			tsf_on_air_rise = le64_to_cpu(desc->v3.tsf_on_air_rise);
 		else
 			tsf_on_air_rise = le64_to_cpu(desc->v1.tsf_on_air_rise);
@@ -1681,8 +1687,14 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 	}
 
 	rx_status->device_timestamp = gp2_on_air_rise;
-	rx_status->band = channel > 14 ? NL80211_BAND_5GHZ :
-		NL80211_BAND_2GHZ;
+	if (iwl_mvm_is_band_in_rx_supported(mvm)) {
+		u8 band = BAND_IN_RX_STATUS(desc->mac_phy_idx);
+
+		rx_status->band = iwl_mvm_nl80211_band_from_rx_msdu(band);
+	} else {
+		rx_status->band = channel > 14 ? NL80211_BAND_5GHZ :
+			NL80211_BAND_2GHZ;
+	}
 	rx_status->freq = ieee80211_channel_to_frequency(channel,
 							 rx_status->band);
 	iwl_mvm_get_signal_strength(mvm, rx_status, rate_n_flags, energy_a,
@@ -1779,6 +1791,14 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		if (ieee80211_is_data(hdr->frame_control))
 			iwl_mvm_rx_csum(sta, skb, desc);
 
+#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+		/*
+		 * these packets are from the AP or the existing TDLS peer.
+		 * In both cases an existing station.
+		 */
+		iwl_mvm_tdls_peer_cache_pkt(mvm, hdr, len, queue);
+#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+
 		if (iwl_mvm_is_dup(sta, queue, rx_status, hdr, desc)) {
 			kfree_skb(skb);
 			goto out;
@@ -1858,7 +1878,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 
 		if (unlikely(ieee80211_is_beacon(hdr->frame_control) ||
 			     ieee80211_is_probe_resp(hdr->frame_control)))
-			rx_status->boottime_ns = ktime_get_boottime_ns();
+			rx_status->boottime_ns = ktime_get_boot_ns();
 	}
 
 	if (iwl_mvm_create_skb(mvm, skb, hdr, len, crypt_len, rxb)) {
@@ -1867,8 +1887,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 	}
 
 	if (!iwl_mvm_reorder(mvm, napi, queue, sta, skb, desc))
-		iwl_mvm_pass_packet_to_mac80211(mvm, napi, skb, queue,
-						sta, csi);
+		iwl_mvm_pass_packet_to_mac80211(mvm, napi, skb, queue, sta);
 out:
 	rcu_read_unlock();
 }

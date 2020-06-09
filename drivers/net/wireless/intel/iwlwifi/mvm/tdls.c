@@ -205,9 +205,15 @@ void iwl_mvm_mac_mgd_protect_tdls_discover(struct ieee80211_hw *hw,
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	u32 duration = 2 * vif->bss_conf.dtim_period * vif->bss_conf.beacon_int;
 
-	mutex_lock(&mvm->mutex);
 	/* Protect the session to hear the TDLS setup response on the channel */
-	iwl_mvm_protect_session(mvm, vif, duration, duration, 100, true);
+	mutex_lock(&mvm->mutex);
+	if (fw_has_capa(&mvm->fw->ucode_capa,
+			IWL_UCODE_TLV_CAPA_SESSION_PROT_CMD))
+		iwl_mvm_schedule_session_protection(mvm, vif, duration,
+						    duration, true);
+	else
+		iwl_mvm_protect_session(mvm, vif, duration,
+					duration, 100, true);
 	mutex_unlock(&mvm->mutex);
 }
 
@@ -721,3 +727,76 @@ retry:
 			 msecs_to_jiffies(delay));
 	mutex_unlock(&mvm->mutex);
 }
+
+#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+void iwl_mvm_tdls_peer_cache_pkt(struct iwl_mvm *mvm, struct ieee80211_hdr *hdr,
+				 u32 len, int rxq)
+{
+	struct iwl_mvm_tdls_peer_counter *cnt;
+	u8 *addr;
+
+	/*
+	 * To reduce code runtime and complexity, we don't check the packet
+	 * arrived on the correct vif, or even if the current vif is a station.
+	 * While it is theoretically possible for a TDLS peer to also be
+	 * connected to us in the capacity of a AP/GO, this will not happen
+	 * in practice.
+	 */
+
+	if (list_empty(&mvm->tdls_peer_cache_list))
+		return;
+
+	if (len < sizeof(*hdr) || !ieee80211_is_data(hdr->frame_control))
+		return;
+
+	addr = rxq < 0 ? ieee80211_get_DA(hdr) : ieee80211_get_SA(hdr);
+
+	/* we rely on the Rx and Tx path mutual atomicity for the counters */
+	rcu_read_lock();
+	list_for_each_entry_rcu(cnt, &mvm->tdls_peer_cache_list, list)
+		if (ether_addr_equal(cnt->mac.addr, addr)) {
+			if (rxq < 0)
+				cnt->tx_bytes += len;
+			else
+				cnt->rx[rxq].bytes += len;
+
+			break;
+		}
+	rcu_read_unlock();
+}
+
+void iwl_mvm_tdls_peer_cache_clear(struct iwl_mvm *mvm,
+				   struct ieee80211_vif *vif)
+{
+	struct iwl_mvm_tdls_peer_counter *cnt, *tmp;
+
+	/*
+	 * mvm->mutex is held or the HW is already unregistered, barring
+	 * vendor commands that can change the list.
+	 */
+	list_for_each_entry_safe(cnt, tmp, &mvm->tdls_peer_cache_list, list) {
+		if (vif && cnt->vif != vif)
+			continue;
+
+		mvm->tdls_peer_cache_cnt--;
+		list_del_rcu(&cnt->list);
+		kfree_rcu(cnt, rcu_head);
+	}
+}
+
+/* requires RCU read side lock taken */
+struct iwl_mvm_tdls_peer_counter *
+iwl_mvm_tdls_peer_cache_find(struct iwl_mvm *mvm, const u8 *addr)
+{
+	struct iwl_mvm_tdls_peer_counter *cnt;
+
+	list_for_each_entry_rcu(cnt, &mvm->tdls_peer_cache_list, list)
+		if (memcmp(addr, cnt->mac.addr, ETH_ALEN) == 0)
+			break;
+
+	if (&cnt->list == &mvm->tdls_peer_cache_list)
+		return NULL;
+
+	return cnt;
+}
+#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
