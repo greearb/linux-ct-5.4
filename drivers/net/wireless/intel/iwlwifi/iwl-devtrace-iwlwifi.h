@@ -54,7 +54,7 @@ TRACE_EVENT(iwlwifi_dev_hcmd,
 		  __entry->flags & CMD_ASYNC ? "a" : "")
 );
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 TRACE_EVENT(iwlwifi_dev_tx_latency_thrshld,
 	TP_PROTO(const struct device *dev,
 		 u32 msrmnt, u32 pkt_start, u32 pkt_end, u16 tid,
@@ -89,7 +89,7 @@ TRACE_EVENT(iwlwifi_dev_tx_latency_thrshld,
 		  __entry->max ? "True" : "False",
 		  __entry->gp2, __entry->event_time)
 );
-#endif /*CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
+#endif /*CONFIG_MAC80211_LATENCY_MEASUREMENTS */
 
 TRACE_EVENT(iwlwifi_dev_rx,
 	TP_PROTO(const struct device *dev, const struct iwl_trans *trans,
@@ -174,7 +174,7 @@ TRACE_EVENT(iwlwifi_dev_ucode_event,
 		  __get_str(dev), __entry->time, __entry->data, __entry->ev)
 );
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	TRACE_EVENT(iwlwifi_dev_dnt_data,
 	TP_PROTO(const struct device *dev,
 		 void *dnt_data, size_t len),

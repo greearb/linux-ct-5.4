@@ -50,14 +50,14 @@ config IWLWIFI_LEDS
 	bool
 	depends on LEDS_CLASS=y || LEDS_CLASS=IWLWIFI
 	depends on IWLMVM || IWLDVM
-	select BPAUTO_LEDS_TRIGGERS
+	select LEDS_TRIGGERS
 	select MAC80211_LEDS
 	default y
 
 config IWLMVM
 	tristate "Intel Wireless WiFi MVM Firmware support"
 	depends on m
-	select BPAUTO_WANT_DEV_COREDUMP
+	select WANT_DEV_COREDUMP
 	depends on MAC80211
 	help
 	  This is the driver that supports the MVM firmware. The list

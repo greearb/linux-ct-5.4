@@ -74,7 +74,7 @@
 #include "iwl-dnt-dispatch.h"
 #include "iwl-dnt-dev-if.h"
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 
 /*
  * iwl_dnt_debugfs_log_read - returns ucodeMessages to the user.
@@ -257,7 +257,7 @@ void iwl_dnt_start(struct iwl_trans *trans)
 }
 IWL_EXPORT_SYMBOL(iwl_dnt_start);
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 static int iwl_dnt_conf_ucode_msgs_via_rx(struct iwl_trans *trans, u32 output)
 {
 	struct iwl_dnt *dnt = trans->tmdev->dnt;
@@ -297,7 +297,7 @@ void iwl_dnt_init(struct iwl_trans *trans, struct dentry *dbgfs_dir)
 
 	dnt->dev = trans->dev;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	ret = iwl_dnt_register_debugfs_entries(trans, dbgfs_dir);
 	if (!ret) {
 		IWL_ERR(trans, "Failed to create dnt debugfs entries\n");
@@ -328,7 +328,7 @@ void iwl_dnt_free(struct iwl_trans *trans)
 	if (!dnt)
 		return;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	debugfs_remove_recursive(dnt->debugfs_entry);
 	if (dnt->debugfs_counter) {
 		IWL_INFO(trans, "waiting for dnt debugfs release (cnt=%d)\n",

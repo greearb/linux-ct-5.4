@@ -65,6 +65,86 @@
 #include <linux/ieee80211.h>
 #include <linux/nl80211.h>
 #include "iwl-csr.h"
+#include <linux/version.h>
+
+/* Hackings to make the backports stuff work in mainline. */
+#define CONFIG_IWL_TIMEOUT_FACTOR 1
+
+#define LINUX_VERSION_IS_LESS(x1,x2,x3) (LINUX_VERSION_CODE < KERNEL_VERSION(x1,x2,x3))
+#define LINUX_VERSION_IS_GEQ(x1,x2,x3)  (LINUX_VERSION_CODE >= KERNEL_VERSION(x1,x2,x3))
+#define LINUX_VERSION_IN_RANGE(x1,x2,x3, y1,y2,y3) \
+        (LINUX_VERSION_IS_GEQ(x1,x2,x3) && LINUX_VERSION_IS_LESS(y1,y2,y3))
+
+#if LINUX_VERSION_IS_LESS(3,7,0)
+#define genl_info_snd_portid(__genl_info) (__genl_info->snd_pid)
+#else
+#define genl_info_snd_portid(__genl_info) (__genl_info->snd_portid)
+#endif
+
+#if LINUX_VERSION_IS_LESS(3,13,0)
+#define __genl_const
+#else /* < 3.13 */
+#define __genl_const const
+#endif /* < 3.13 */
+
+#ifndef GENLMSG_DEFAULT_SIZE
+#define GENLMSG_DEFAULT_SIZE (NLMSG_DEFAULT_SIZE - GENL_HDRLEN)
+#endif
+
+#if LINUX_VERSION_IS_LESS(3,1,0)
+#define genl_dump_check_consistent(cb, user_hdr) do { } while (0)
+#endif
+
+#if LINUX_VERSION_IS_LESS(4,10,0)
+#define __genl_ro_after_init
+#else
+#define __genl_ro_after_init __ro_after_init
+#endif
+
+#if LINUX_VERSION_IS_LESS(3,7,0)
+#define netlink_notify_portid(__notify) (__notify->pid)
+#define NETLINK_CB_PORTID(__skb) NETLINK_CB(__skb).pid
+#else
+#define netlink_notify_portid(__notify) (__notify->portid)
+#define NETLINK_CB_PORTID(__skb) NETLINK_CB(__skb).portid
+#endif
+
+#define BACKPORTS_GIT_TRACKED "ct-5.4"
+#define BACKPORTS_BUILD_TSTAMP "NA"
+
+#if LINUX_VERSION_IS_LESS(3,17,0)
+#define ktime_get_ns LINUX_BACKPORT(ktime_get_ns)
+extern ktime_t ktime_get(void);
+#define ktime_get_ns LINUX_BACKPORT(ktime_get_ns)
+static inline u64 ktime_get_ns(void)
+{
+        return ktime_to_ns(ktime_get());
+}
+
+extern ktime_t ktime_get_boottime(void);
+#define ktime_get_boot_ns LINUX_BACKPORT(ktime_get_boot_ns)
+static inline u64 ktime_get_boot_ns(void)
+{
+        return ktime_to_ns(ktime_get_boottime());
+}
+#endif /* < 3.17 */
+
+#if LINUX_VERSION_IS_GEQ(5,3,0)
+/*
+ * In v5.3, this function was renamed, so rename it here for v5.3+.
+ * When we merge v5.3 back from upstream, the opposite should be done
+ * (i.e. we will have _boottime_ and need to rename to _boot_ in <
+ * v5.3 instead).
+*/
+#define ktime_get_boot_ns ktime_get_boottime_ns
+#endif /* > 5.3.0 */
+
+#if LINUX_VERSION_IS_LESS(4,18,0)
+extern time64_t ktime_get_boottime_seconds(void);
+#endif /* < 4.18 */
+
+
+/* End of backport hackings */
 
 enum iwl_device_family {
 	IWL_DEVICE_FAMILY_UNDEFINED,
@@ -130,9 +210,9 @@ enum iwl_nvm_type {
 
 /* TX queue watchdog timeouts in mSecs */
 #define IWL_WATCHDOG_DISABLED	0
-#define IWL_DEF_WD_TIMEOUT	(2500 * CPTCFG_IWL_TIMEOUT_FACTOR)
-#define IWL_LONG_WD_TIMEOUT	(10000 * CPTCFG_IWL_TIMEOUT_FACTOR)
-#define IWL_MAX_WD_TIMEOUT	(120000 * CPTCFG_IWL_TIMEOUT_FACTOR)
+#define IWL_DEF_WD_TIMEOUT	(2500 * CONFIG_IWL_TIMEOUT_FACTOR)
+#define IWL_LONG_WD_TIMEOUT	(10000 * CONFIG_IWL_TIMEOUT_FACTOR)
+#define IWL_MAX_WD_TIMEOUT	(120000 * CONFIG_IWL_TIMEOUT_FACTOR)
 
 #define IWL_DEFAULT_MAX_TX_POWER 22
 #define IWL_TX_CSUM_NETIF_FLAGS (NETIF_F_IPV6_CSUM | NETIF_F_IP_CSUM |\
@@ -544,7 +624,7 @@ extern const char iwl_ax101_name[];
 extern const char iwl_ax200_killer_1650w_name[];
 extern const char iwl_ax200_killer_1650x_name[];
 
-#if IS_ENABLED(CPTCFG_IWLMVM)
+#if IS_ENABLED(CONFIG_IWLMVM)
 extern const struct iwl_cfg iwl7260_2ac_cfg;
 extern const struct iwl_cfg iwl7260_2ac_cfg_high_temp;
 extern const struct iwl_cfg iwl7260_2n_cfg;
@@ -565,8 +645,8 @@ extern const struct iwl_cfg iwl8260_2ac_cfg;
 extern const struct iwl_cfg iwl8265_2ac_cfg;
 extern const struct iwl_cfg iwl8275_2ac_cfg;
 extern const struct iwl_cfg iwl4165_2ac_cfg;
-#endif /* IS_ENABLED(CPTCFG_IWLMVM) */
-#if IS_ENABLED(CPTCFG_IWLMVM) || IS_ENABLED(CPTCFG_IWLFMAC)
+#endif /* IS_ENABLED(CONFIG_IWLMVM) */
+#if IS_ENABLED(CONFIG_IWLMVM) || IS_ENABLED(CONFIG_IWLFMAC)
 extern const struct iwl_cfg iwl9260_2ac_cfg;
 extern const struct iwl_cfg iwl9560_qu_b0_jf_b0_cfg;
 extern const struct iwl_cfg iwl9560_qu_c0_jf_b0_cfg;
@@ -599,6 +679,6 @@ extern const struct iwl_cfg iwlax411_2ax_cfg_so_gf4_a0;
 extern const struct iwl_cfg iwlax411_2ax_cfg_so_gf4_a0_long;
 extern const struct iwl_cfg iwlax411_2ax_cfg_sosnj_gf4_a0;
 extern const struct iwl_cfg iwlax211_cfg_snj_gf_a0;
-#endif /* CPTCFG_IWLMVM || CPTCFG_IWLFMAC */
+#endif /* CONFIG_IWLMVM || CONFIG_IWLFMAC */
 
 #endif /* __IWL_CONFIG_H__ */

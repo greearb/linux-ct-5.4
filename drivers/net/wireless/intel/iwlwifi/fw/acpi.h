@@ -61,12 +61,12 @@
 #define __iwl_fw_acpi__
 
 #include <linux/acpi.h>
-#include "fw/api/commands.h"
-#include "fw/api/power.h"
-#include "fw/api/phy.h"
-#include "fw/api/nvm-reg.h"
-#include "fw/img.h"
-#include "iwl-trans.h"
+#include "../fw/api/commands.h"
+#include "../fw/api/power.h"
+#include "../fw/api/phy.h"
+#include "../fw/api/nvm-reg.h"
+#include "../fw/img.h"
+#include "../iwl-trans.h"
 
 
 #define ACPI_WRDS_METHOD	"WRDS"

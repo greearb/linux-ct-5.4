@@ -67,8 +67,8 @@
 #include <net/ip.h>
 #include <net/ipv6.h>
 
-#include "iwl-trans.h"
-#include "iwl-eeprom-parse.h"
+#include "../iwl-trans.h"
+#include "../iwl-eeprom-parse.h"
 #include "mvm.h"
 #include "sta.h"
 
@@ -347,7 +347,7 @@ static u32 iwl_mvm_get_tx_rate(struct iwl_mvm *mvm,
 	 */
 	if (info->band != NL80211_BAND_2GHZ)
 		rate_idx += IWL_FIRST_OFDM_RATE;
-#ifdef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
+#ifdef CONFIG_IWLWIFI_FORCE_OFDM_RATE
 	/* Force OFDM on each TX packet */
 	rate_idx = IWL_FIRST_OFDM_RATE;
 #endif
@@ -399,7 +399,7 @@ void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm, struct iwl_tx_cmd *tx_cmd,
 	 * table is controlled by LINK_QUALITY commands
 	 */
 
-#ifndef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
+#ifndef CONFIG_IWLWIFI_FORCE_OFDM_RATE
 	if (ieee80211_is_data(fc) && sta) {
 		struct iwl_mvm_sta *mvmsta = iwl_mvm_sta_from_mac80211(sta);
 
@@ -1310,7 +1310,7 @@ static void iwl_mvm_check_ratid_empty(struct iwl_mvm *mvm,
 	}
 }
 
-#ifdef CPTCFG_IWLWIFI_DEBUG
+#ifdef CONFIG_IWLWIFI_DEBUG
 const char *iwl_mvm_get_tx_fail_reason(u32 status)
 {
 #define TX_STATUS_FAIL(x) case TX_STATUS_FAIL_ ## x: return #x
@@ -1348,7 +1348,7 @@ const char *iwl_mvm_get_tx_fail_reason(u32 status)
 #undef TX_STATUS_FAIL
 #undef TX_STATUS_POSTPONE
 }
-#endif /* CPTCFG_IWLWIFI_DEBUG */
+#endif /* CONFIG_IWLWIFI_DEBUG */
 
 void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
 			       enum nl80211_band band,
@@ -1399,7 +1399,7 @@ static void iwl_mvm_hwrate_to_tx_status(u32 rate_n_flags,
 	iwl_mvm_hwrate_to_tx_rate(rate_n_flags, info->band, r);
 }
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 static void iwl_mvm_tx_lat_add_ts_ack(struct sk_buff *skb)
 {
 	s64 temp = ktime_to_ms(ktime_get());
@@ -1499,7 +1499,7 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		bool flushed = false;
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 		iwl_mvm_tx_lat_add_ts_ack(skb);
 #endif
 		skb_freed++;
@@ -1588,11 +1588,11 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		info->status.status_driver_data[0] =
 			RS_DRV_DATA_PACK(lq_color, tx_resp->reduced_tpc);
 
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 		if (info->flags & IEEE80211_TX_STAT_ACK)
 			iwl_mvm_tdls_peer_cache_pkt(mvm, (void *)skb->data,
 						    skb->len, -1);
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 
 		ieee80211_tx_status(mvm->hw, skb);
 	}
@@ -1702,7 +1702,7 @@ out:
 	rcu_read_unlock();
 }
 
-#ifdef CPTCFG_IWLWIFI_DEBUG
+#ifdef CONFIG_IWLWIFI_DEBUG
 #define AGG_TX_STATE_(x) case AGG_TX_STATE_ ## x: return #x
 static const char *iwl_get_agg_tx_status(u16 status)
 {
@@ -1749,7 +1749,7 @@ static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 				      struct iwl_rx_packet *pkt)
 {}
-#endif /* CPTCFG_IWLWIFI_DEBUG */
+#endif /* CONFIG_IWLWIFI_DEBUG */
 
 static void iwl_mvm_rx_tx_cmd_agg(struct iwl_mvm *mvm,
 				  struct iwl_rx_packet *pkt)
@@ -1867,7 +1867,7 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 		iwl_mvm_tx_lat_add_ts_ack(skb);
 #endif
 		if (ieee80211_is_data_qos(hdr->frame_control))
@@ -1884,9 +1884,9 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 		 */
 		info->flags |= IEEE80211_TX_STAT_ACK;
 
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 		iwl_mvm_tdls_peer_cache_pkt(mvm, hdr, skb->len, -1);
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 
 		/* this is the first skb we deliver in this batch */
 		/* put the rate scaling data there */

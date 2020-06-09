@@ -23,7 +23,7 @@
 #include "rs.h"
 #include "fw-api.h"
 #include "sta.h"
-#include "iwl-op-mode.h"
+#include "../iwl-op-mode.h"
 #include "mvm.h"
 #include "debugfs.h"
 
@@ -2020,7 +2020,7 @@ static bool rs_tpc_perform(struct iwl_mvm *mvm,
 	int weak, strong;
 	int weak_tpt = IWL_INVALID_VALUE, strong_tpt = IWL_INVALID_VALUE;
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	if (lq_sta->pers.dbg_fixed_txp_reduction <= TPC_MAX_REDUCTION) {
 		IWL_DEBUG_RATE(mvm, "fixed tpc: %d\n",
 			       lq_sta->pers.dbg_fixed_txp_reduction);
@@ -2768,7 +2768,7 @@ static void *rs_drv_alloc_sta(void *mvm_rate, struct ieee80211_sta *sta,
 	IWL_DEBUG_RATE(mvm, "create station rate scale window\n");
 
 	lq_sta->pers.drv = mvm;
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	lq_sta->pers.dbg_fixed_rate = 0;
 	lq_sta->pers.dbg_fixed_txp_reduction = TPC_INVALID;
 	lq_sta->pers.ss_force = RS_SS_FORCE_NONE;
@@ -2893,7 +2893,7 @@ static void rs_vht_init(struct iwl_mvm *mvm,
 	lq_sta->is_vht = true;
 }
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 void iwl_mvm_reset_frame_stats(struct iwl_mvm *mvm)
 {
 	spin_lock_bh(&mvm->drv_stats_lock);
@@ -3042,7 +3042,7 @@ static void rs_drv_rate_init(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
 	/* as default allow aggregation for all tids */
 	lq_sta->tx_agg_tid_en = IWL_AGG_ALL_TID;
 	lq_sta->is_agg = 0;
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	iwl_mvm_reset_frame_stats(mvm);
 #endif
 	rs_initialize_lq(mvm, sta, lq_sta, band);
@@ -3103,7 +3103,7 @@ static void __iwl_mvm_rs_tx_status(struct iwl_mvm *mvm,
 		return;
 	}
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	/* Disable last tx check if we are debugging with fixed rate but
 	 * update tx stats
 	 */
@@ -3316,7 +3316,7 @@ void iwl_mvm_rs_tx_status(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
 	spin_unlock(&mvmsta->lq_sta.rs_drv.pers.lock);
 }
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 static void rs_build_rates_table_from_fixed(struct iwl_mvm *mvm,
 					    struct iwl_lq_cmd *lq_cmd,
 					    enum nl80211_band band,
@@ -3352,7 +3352,7 @@ static void rs_build_rates_table_from_fixed(struct iwl_mvm *mvm,
 		lq_cmd->agg_frame_cnt_limit =
 			LINK_QUAL_AGG_FRAME_LIMIT_GEN2_DEF;
 }
-#endif /* CPTCFG_MAC80211_DEBUGFS */
+#endif /* CONFIG_MAC80211_DEBUGFS */
 
 static void rs_fill_rates_for_column(struct iwl_mvm *mvm,
 				     struct iwl_lq_sta *lq_sta,
@@ -3558,7 +3558,7 @@ static void rs_set_lq_ss_params(struct iwl_mvm *mvm,
 	if (!iwl_mvm_bt_coex_is_mimo_allowed(mvm, sta))
 		goto out;
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	/* Check if forcing the decision is configured.
 	 * Note that SISO is forced by not allowing STBC or BFER
 	 */
@@ -3631,7 +3631,7 @@ static void rs_fill_lq_cmd(struct iwl_mvm *mvm,
 	lq_cmd->agg_time_limit =
 		cpu_to_le16(IWL_MVM_RS_AGG_TIME_LIMIT);
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	if (lq_sta->pers.dbg_fixed_rate) {
 		rs_build_rates_table_from_fixed(mvm, lq_cmd,
 						lq_sta->band,
@@ -3755,7 +3755,7 @@ int rs_pretty_print_rate(char *buf, int bufsz, const u32 rate)
 			 (rate & RATE_MCS_BF_MSK) ? "BF " : "");
 }
 
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 /**
  * Program the device to use fixed rate for frame transmit
  * This is for debugging/testing only
@@ -4159,7 +4159,7 @@ static const struct rate_control_ops rs_mvm_ops_drv = {
 	.alloc_sta = rs_drv_alloc_sta,
 	.free_sta = rs_free_sta,
 	.rate_update = rs_drv_rate_update,
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 	.add_sta_debugfs = rs_drv_add_sta_debugfs,
 #endif
 	.capa = RATE_CTRL_CAPA_VHT_EXT_NSS_BW,

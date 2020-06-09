@@ -62,27 +62,27 @@
 #include <net/mac80211.h>
 #include <linux/netdevice.h>
 
-#include "iwl-trans.h"
-#include "iwl-op-mode.h"
-#include "fw/img.h"
-#include "iwl-debug.h"
-#include "iwl-csr.h" /* for iwl_mvm_rx_card_state_notif */
-#include "iwl-io.h" /* for iwl_mvm_rx_card_state_notif */
-#include "iwl-prph.h"
-#include "fw/acpi.h"
+#include "../iwl-trans.h"
+#include "../iwl-op-mode.h"
+#include "../fw/img.h"
+#include "../iwl-debug.h"
+#include "../iwl-csr.h" /* for iwl_mvm_rx_card_state_notif */
+#include "../iwl-io.h" /* for iwl_mvm_rx_card_state_notif */
+#include "../iwl-prph.h"
+#include "../fw/acpi.h"
 
 #include "mvm.h"
-#include "fw/dbg.h"
-#include "iwl-phy-db.h"
-#include "iwl-modparams.h"
-#include "iwl-nvm-parse.h"
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
-#include "iwl-dnt-cfg.h"
-#include "fw/testmode.h"
+#include "../fw/dbg.h"
+#include "../iwl-phy-db.h"
+#include "../iwl-modparams.h"
+#include "../iwl-nvm-parse.h"
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
+#include "../iwl-dnt-cfg.h"
+#include "../fw/testmode.h"
 #endif
 
-#define MVM_UCODE_ALIVE_TIMEOUT	(HZ * CPTCFG_IWL_TIMEOUT_FACTOR)
-#define MVM_UCODE_CALIB_TIMEOUT	(2 * HZ * CPTCFG_IWL_TIMEOUT_FACTOR)
+#define MVM_UCODE_ALIVE_TIMEOUT	(HZ * CONFIG_IWL_TIMEOUT_FACTOR)
+#define MVM_UCODE_CALIB_TIMEOUT	(2 * HZ * CONFIG_IWL_TIMEOUT_FACTOR)
 
 #define UCODE_VALID_OK	cpu_to_le32(0x1)
 
@@ -273,7 +273,7 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 	alive_data->scd_base_addr = le32_to_cpu(lmac1->dbg_ptrs.scd_base_ptr);
 	alive_data->valid = status == IWL_ALIVE_STATUS_OK;
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	iwl_tm_set_fw_ver(mvm->trans, le32_to_cpu(lmac1->ucode_major),
 			  le32_to_cpu(lmac1->ucode_minor));
 #endif
@@ -428,7 +428,7 @@ static int iwl_mvm_load_ucode_wait_alive(struct iwl_mvm *mvm,
 		BIT(IWL_MAX_TID_COUNT + 2);
 
 	set_bit(IWL_MVM_STATUS_FIRMWARE_RUNNING, &mvm->status);
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	iwl_fw_set_dbg_rec_on(&mvm->fwrt);
 #endif
 
@@ -579,7 +579,7 @@ static int iwl_send_phy_cfg_cmd(struct iwl_mvm *mvm)
 	struct iwl_phy_specific_cfg phy_filters = {};
 	u8 cmd_ver;
 	size_t cmd_size;
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	u32 override_mask, flow_override, flow_src;
 	u32 event_override, event_src;
 	const struct iwl_tlv_calib_ctrl *default_calib =
@@ -588,7 +588,7 @@ static int iwl_send_phy_cfg_cmd(struct iwl_mvm *mvm)
 
 	if (iwl_mvm_has_unified_ucode(mvm) &&
 	    !mvm->trans->cfg->tx_with_siso_diversity
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	    && !mvm->trans->dbg_cfg.MVM_CALIB_OVERRIDE_CONTROL
 #endif
 	   )
@@ -623,7 +623,7 @@ static int iwl_send_phy_cfg_cmd(struct iwl_mvm *mvm)
 		       sizeof(struct iwl_phy_specific_cfg));
 	}
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	override_mask = mvm->trans->dbg_cfg.MVM_CALIB_OVERRIDE_CONTROL;
 	if (override_mask) {
 		IWL_DEBUG_INFO(mvm,
@@ -726,7 +726,7 @@ int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)
 		IWL_ERR(mvm, "Failed to start INIT ucode: %d\n", ret);
 		goto remove_notif;
 	}
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	iwl_dnt_start(mvm->trans);
 #endif
 
@@ -1185,7 +1185,7 @@ static int iwl_mvm_sar_init(struct iwl_mvm *mvm)
 				"EWRD SAR BIOS table invalid or unavailable. (%d)\n",
 				ret);
 
-#if defined(CPTCFG_IWLMVM_VENDOR_CMDS) && defined(CONFIG_ACPI)
+#if defined(CONFIG_IWLMVM_VENDOR_CMDS) && defined(CONFIG_ACPI)
 	/*
 	 * if no profile was chosen by the user yet, choose profile 1 (WRDS) as
 	 * default for both chains
@@ -1274,7 +1274,7 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 	if (ret)
 		IWL_ERR(mvm, "Failed to initialize Smart Fifo\n");
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	iwl_dnt_start(mvm->trans);
 #endif
 
@@ -1286,7 +1286,7 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 		iwl_fw_start_dbg_conf(&mvm->fwrt, FW_DBG_START_FROM_ALIVE);
 	}
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 	if (iwl_fw_dbg_trigger_enabled(mvm->fw, FW_DBG_TRIGGER_TX_LATENCY)) {
 		struct iwl_fw_dbg_trigger_tlv *trig;
 		struct iwl_fw_dbg_trigger_tx_latency *thrshold_trig;
@@ -1463,7 +1463,7 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 	if (test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status))
 		iwl_mvm_send_recovery_cmd(mvm, ERROR_RECOVERY_UPDATE_DB);
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	/* set_mode must be IWL_TX_POWER_MODE_SET_DEVICE if this was
 	 * ever initialized.
 	 */
@@ -1544,7 +1544,7 @@ int iwl_mvm_load_d3_fw(struct iwl_mvm *mvm)
 		goto error;
 	}
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	iwl_dnt_start(mvm->trans);
 #endif
 	ret = iwl_send_tx_ant_cfg(mvm, iwl_mvm_get_valid_tx_ant(mvm));

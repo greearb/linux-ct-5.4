@@ -85,7 +85,7 @@
 #include "fw/acpi.h"
 #include "fw/img.h"
 
-#define XVT_UCODE_CALIB_TIMEOUT (CPTCFG_IWL_TIMEOUT_FACTOR * HZ)
+#define XVT_UCODE_CALIB_TIMEOUT (CONFIG_IWL_TIMEOUT_FACTOR * HZ)
 #define XVT_SCU_BASE	(0xe6a00000)
 #define XVT_SCU_SNUM1	(XVT_SCU_BASE + 0x300)
 #define XVT_SCU_SNUM2	(XVT_SCU_SNUM1 + 0x4)
@@ -433,7 +433,7 @@ static int iwl_xvt_send_phy_cfg_cmd(struct iwl_xvt *xvt, u32 ucode_type)
 		       calib_cmd_cfg->phy_cfg);
 
 	/* ESL workaround - calibration is not allowed */
-	if (CPTCFG_IWL_TIMEOUT_FACTOR > 20) {
+	if (CONFIG_IWL_TIMEOUT_FACTOR > 20) {
 		calib_cmd_cfg->calib_control.event_trigger = 0;
 		calib_cmd_cfg->calib_control.flow_trigger = 0;
 	}
@@ -1362,7 +1362,7 @@ static int iwl_xvt_start_tx_handler(void *data)
 	time_remain = wait_event_interruptible_timeout(
 			xvt->tx_done_wq,
 			xvt->num_of_tx_resp == sent_packets,
-			5 * HZ * CPTCFG_IWL_TIMEOUT_FACTOR);
+			5 * HZ * CONFIG_IWL_TIMEOUT_FACTOR);
 	if (time_remain <= 0) {
 		IWL_ERR(xvt, "Not all Tx messages were sent\n");
 		status = XVT_TX_DRIVER_TIMEOUT;

@@ -67,7 +67,7 @@
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 #include "fw/testmode.h"
 #endif
 
@@ -106,7 +106,7 @@ struct iwl_tm_data;
  *	5) The driver layer stops the op_mode
  */
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 /**
  * struct iwl_test_ops: callback to the op mode
  * @send_hcmd: Handler that sends host cmd in the specific op_mode. If this
@@ -187,7 +187,7 @@ struct iwl_op_mode_ops {
 	void (*cmd_queue_full)(struct iwl_op_mode *op_mode);
 	void (*nic_config)(struct iwl_op_mode *op_mode);
 	void (*wimax_active)(struct iwl_op_mode *op_mode);
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	struct iwl_test_ops test_ops;
 #endif
 };

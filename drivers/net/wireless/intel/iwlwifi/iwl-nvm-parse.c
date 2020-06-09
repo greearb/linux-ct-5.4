@@ -510,7 +510,7 @@ static void iwl_init_vht_hw_capab(struct iwl_trans *trans,
 			cpu_to_le16(IEEE80211_VHT_MCS_NOT_SUPPORTED << 2);
 	}
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	vht_cap->cap ^= trans->dbg_cfg.vht_cap_flip;
 #endif
 
@@ -706,7 +706,7 @@ static void iwl_init_he_hw_capab(struct iwl_trans *trans,
 	}
 }
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 /* returns true iff there exists one spatial stream where MCS of a > b */
 static bool iwl_he_mcs_greater(u16 a, u16 b)
 {
@@ -1043,7 +1043,7 @@ static int iwl_set_hw_address(struct iwl_trans *trans,
 			      struct iwl_nvm_data *data, const __be16 *nvm_hw,
 			      const __le16 *mac_override)
 {
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	struct iwl_dbg_cfg *dbg_cfg = &trans->dbg_cfg;
 
 	if (dbg_cfg->hw_address.len) {
@@ -1156,7 +1156,7 @@ iwl_parse_nvm_data(struct iwl_trans *trans, const struct iwl_cfg *cfg,
 
 	sku = iwl_get_sku(cfg, nvm_sw, phy_sku);
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	if (trans->dbg_cfg.disable_52GHz)
 		/* remove support for 5.2 */
 		sku &= ~NVM_SKU_CAP_BAND_52GHZ;
@@ -1208,7 +1208,7 @@ iwl_parse_nvm_data(struct iwl_trans *trans, const struct iwl_cfg *cfg,
 		return NULL;
 	}
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	iwl_init_he_override(trans, &data->bands[NL80211_BAND_2GHZ]);
 	iwl_init_he_override(trans, &data->bands[NL80211_BAND_5GHZ]);
 #endif
@@ -1656,7 +1656,7 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 	iwl_set_hw_address_from_csr(trans, nvm);
 	/* TODO: if platform NVM has MAC address - override it here */
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	if (trans->dbg_cfg.hw_address.len) {
 		if (trans->dbg_cfg.hw_address.len == ETH_ALEN &&
 		    is_valid_ether_addr(trans->dbg_cfg.hw_address.data))
@@ -1709,7 +1709,7 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 		sbands_flags |= IWL_NVM_SBANDS_FLAGS_LAR;
 	}
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	iwl_init_he_override(trans, &nvm->bands[NL80211_BAND_2GHZ]);
 	iwl_init_he_override(trans, &nvm->bands[NL80211_BAND_5GHZ]);
 #endif

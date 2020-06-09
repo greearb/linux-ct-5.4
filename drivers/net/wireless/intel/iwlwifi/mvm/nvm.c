@@ -63,14 +63,14 @@
  *****************************************************************************/
 #include <linux/firmware.h>
 #include <linux/rtnetlink.h>
-#include "iwl-trans.h"
-#include "iwl-csr.h"
+#include "../iwl-trans.h"
+#include "../iwl-csr.h"
 #include "mvm.h"
-#include "iwl-eeprom-parse.h"
-#include "iwl-eeprom-read.h"
-#include "iwl-nvm-parse.h"
-#include "iwl-prph.h"
-#include "fw/acpi.h"
+#include "../iwl-eeprom-parse.h"
+#include "../iwl-eeprom-read.h"
+#include "../iwl-nvm-parse.h"
+#include "../iwl-prph.h"
+#include "../fw/acpi.h"
 
 /* Default NVM size to read */
 #define IWL_NVM_DEFAULT_CHUNK_SIZE (2 * 1024)
@@ -392,7 +392,7 @@ int iwl_nvm_init(struct iwl_mvm *mvm)
 		mvm->nvm_sections[section].data = temp;
 		mvm->nvm_sections[section].length = ret;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 		switch (section) {
 		case NVM_SECTION_TYPE_SW:
 			mvm->nvm_sw_blob.data = temp;

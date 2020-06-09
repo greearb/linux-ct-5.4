@@ -63,7 +63,7 @@
 #include <asm/unaligned.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
-#include "iwl-trans.h"
+#include "../iwl-trans.h"
 #include "mvm.h"
 #include "fw-api.h"
 
@@ -80,7 +80,7 @@ void iwl_mvm_rx_rx_phy_cmd(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 	memcpy(&mvm->last_phy_info, pkt->data, sizeof(mvm->last_phy_info));
 	mvm->ampdu_ref++;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->last_phy_info.phy_flags & cpu_to_le16(RX_RES_PHY_FLAGS_AGG)) {
 		spin_lock(&mvm->drv_stats_lock);
 		mvm->drv_rx_stats.ampdu_count++;
@@ -474,13 +474,13 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		    ieee80211_is_data(hdr->frame_control))
 			iwl_mvm_rx_handle_tcm(mvm, sta, hdr, len, phy_info,
 					      rate_n_flags);
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 		/*
 		 * these packets are from the AP or the existing TDLS peer.
 		 * In both cases an existing station.
 		 */
 		iwl_mvm_tdls_peer_cache_pkt(mvm, hdr, len, 0);
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 
 		if (ieee80211_is_data(hdr->frame_control))
 			iwl_mvm_rx_csum(sta, skb, rx_pkt_status);
@@ -552,7 +552,7 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		rx_status->rate_idx = rate;
 	}
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	iwl_mvm_update_frame_stats(mvm, rate_n_flags,
 				   rx_status->flag & RX_FLAG_AMPDU_DETAILS);
 #endif

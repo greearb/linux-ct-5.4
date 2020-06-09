@@ -511,7 +511,7 @@ int iwl_xvt_allocate_tx_queue(struct iwl_xvt *xvt, u8 sta_id,
 void iwl_xvt_txq_disable(struct iwl_xvt *xvt);
 
 /* XVT debugfs */
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 int iwl_xvt_dbgfs_register(struct iwl_xvt *xvt, struct dentry *dbgfs_dir);
 #else
 static inline int iwl_xvt_dbgfs_register(struct iwl_xvt *xvt,
@@ -519,7 +519,7 @@ static inline int iwl_xvt_dbgfs_register(struct iwl_xvt *xvt,
 {
 	return 0;
 }
-#endif /* CPTCFG_IWLWIFI_DEBUGFS */
+#endif /* CONFIG_IWLWIFI_DEBUGFS */
 
 #endif
 

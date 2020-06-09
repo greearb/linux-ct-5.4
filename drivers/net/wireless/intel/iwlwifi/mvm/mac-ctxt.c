@@ -62,8 +62,8 @@
 
 #include <linux/etherdevice.h>
 #include <net/mac80211.h>
-#include "iwl-io.h"
-#include "iwl-prph.h"
+#include "../iwl-io.h"
+#include "../iwl-prph.h"
 #include "fw-api.h"
 #include "mvm.h"
 #include "time-event.h"
@@ -611,7 +611,7 @@ static int iwl_mvm_mac_ctxt_cmd_sta(struct iwl_mvm *mvm,
 	if (vif->p2p) {
 		struct ieee80211_p2p_noa_attr *noa =
 			&vif->bss_conf.p2p_noa_attr;
-#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+#ifdef CONFIG_IWLMVM_P2P_OPPPS_TEST_WA
 		/*
 		 * Pass CT window including OPPPS enable flag as part of a WA
 		 * to pass P2P OPPPS certification test. Refer to
@@ -872,7 +872,7 @@ u8 iwl_mvm_mac_ctxt_get_lowest_rate(struct ieee80211_tx_info *info,
 	else
 		rate = IWL_FIRST_OFDM_RATE;
 
-#ifdef CPTCFG_IWLWIFI_FORCE_OFDM_RATE
+#ifdef CONFIG_IWLWIFI_FORCE_OFDM_RATE
 	rate = IWL_FIRST_OFDM_RATE;
 #endif
 	return rate;
@@ -1063,7 +1063,7 @@ int iwl_mvm_mac_ctxt_beacon_changed(struct iwl_mvm *mvm,
 	if (!beacon)
 		return -ENOMEM;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->beacon_inject_active)
 		return -EBUSY;
 #endif

@@ -89,7 +89,7 @@
  *	peer in the TDLS cache
  * @IWL_MVM_VENDOR_CMD_SET_NIC_TXPOWER_LIMIT: set the NIC's (SAR) TX power limit
  * @IWL_MVM_VENDOR_CMD_OPPPS_WA: wa to pass Sigma test - applicable code is
- *	claused under CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+ *	claused under CONFIG_IWLMVM_P2P_OPPPS_TEST_WA
  * @IWL_MVM_VENDOR_CMD_GSCAN_GET_CAPABILITIES: get driver gscan capabilities as
  *	specified in %IWL_MVM_VENDOR_ATTR_GSCAN_*
  * @IWL_MVM_VENDOR_CMD_GSCAN_START: set gscan parameters and start gscan

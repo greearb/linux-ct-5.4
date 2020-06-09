@@ -379,7 +379,7 @@ static int iwl_tm_get_device_status(struct iwl_tm_gnl_dev *dev,
 	return 0;
 }
 
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 static int iwl_tm_switch_op_mode(struct iwl_tm_gnl_dev *dev,
 				 struct iwl_tm_data *data_in)
 {
@@ -744,7 +744,7 @@ static int iwl_tm_gnl_cmd_execute(struct iwl_tm_gnl_cmd *cmd_data)
 					       &cmd_data->data_out);
 		common_op = true;
 		break;
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 	case IWL_TM_USER_CMD_SWITCH_OP_MODE:
 		ret = iwl_tm_switch_op_mode(dev, &cmd_data->data_in);
 		common_op = true;

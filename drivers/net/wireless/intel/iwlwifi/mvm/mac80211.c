@@ -71,29 +71,29 @@
 #include <net/ieee80211_radiotap.h>
 #include <net/tcp.h>
 
-#include "iwl-op-mode.h"
-#include "iwl-io.h"
+#include "../iwl-op-mode.h"
+#include "../iwl-io.h"
 #include "mvm.h"
 #include "sta.h"
 #include "time-event.h"
-#include "iwl-eeprom-parse.h"
-#include "iwl-phy-db.h"
-#include "iwl-vendor-cmd.h"
-#include "fw/error-dump.h"
-#include "iwl-prph.h"
-#include "iwl-nvm-parse.h"
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#include "../iwl-eeprom-parse.h"
+#include "../iwl-phy-db.h"
+#include "../iwl-vendor-cmd.h"
+#include "../fw/error-dump.h"
+#include "../iwl-prph.h"
+#include "../iwl-nvm-parse.h"
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 #include "iwl-dnt-cfg.h"
 #include "iwl-dnt-dispatch.h"
 #endif
-#ifdef CPTCFG_NL80211_TESTMODE
-#include "fw/testmode.h"
+#ifdef CONFIG_NL80211_TESTMODE
+#include "../fw/testmode.h"
 #endif
-#include "fw/api/nan.h"
+#include "../fw/api/nan.h"
 
 static const struct ieee80211_iface_limit iwl_mvm_limits[] = {
 	{
-		.max = CPTCFG_IWLWIFI_NUM_STA_INTERFACES,
+		.max = CONFIG_IWLWIFI_NUM_STA_INTERFACES,
 		.types = BIT(NL80211_IFTYPE_STATION),
 	},
 	{
@@ -110,8 +110,8 @@ static const struct ieee80211_iface_limit iwl_mvm_limits[] = {
 
 static const struct ieee80211_iface_combination iwl_mvm_iface_combinations[] = {
 	{
-		.num_different_channels = CPTCFG_IWLWIFI_NUM_CHANNELS,
-		.max_interfaces = CPTCFG_IWLWIFI_NUM_STA_INTERFACES + 2,
+		.num_different_channels = CONFIG_IWLWIFI_NUM_CHANNELS,
+		.max_interfaces = CONFIG_IWLWIFI_NUM_STA_INTERFACES + 2,
 		.limits = iwl_mvm_limits,
 		.n_limits = ARRAY_SIZE(iwl_mvm_limits),
 	},
@@ -119,7 +119,7 @@ static const struct ieee80211_iface_combination iwl_mvm_iface_combinations[] = {
 
 static const struct ieee80211_iface_limit iwl_mvm_limits_nan[] = {
 	{
-		.max =  CPTCFG_IWLWIFI_NUM_STA_INTERFACES,
+		.max =  CONFIG_IWLWIFI_NUM_STA_INTERFACES,
 		.types = BIT(NL80211_IFTYPE_STATION),
 	},
 	{
@@ -141,14 +141,14 @@ static const struct ieee80211_iface_limit iwl_mvm_limits_nan[] = {
 static const struct ieee80211_iface_combination
 iwl_mvm_iface_combinations_nan[] = {
 	{
-		.num_different_channels = CPTCFG_IWLWIFI_NUM_CHANNELS,
-		.max_interfaces = CPTCFG_IWLWIFI_NUM_STA_INTERFACES + 3,
+		.num_different_channels = CONFIG_IWLWIFI_NUM_CHANNELS,
+		.max_interfaces = CONFIG_IWLWIFI_NUM_STA_INTERFACES + 3,
 		.limits = iwl_mvm_limits_nan,
 		.n_limits = ARRAY_SIZE(iwl_mvm_limits_nan),
 	},
 };
 
-#ifdef CPTCFG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
 /*
  * Use the reserved field to indicate magic values.
  * these values will only be used internally by the driver,
@@ -625,7 +625,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 	num_mac = (mvm->nvm_data->n_hw_addrs > 1) ?
 		min(IWL_MVM_MAX_ADDRESSES, mvm->nvm_data->n_hw_addrs) : 1;
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	if (mvm->trans->dbg_cfg.hw_address.len)
 		num_mac = IWL_MVM_MAX_ADDRESSES;
 #endif
@@ -769,7 +769,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 	}
 #endif
 
-#ifdef CPTCFG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
 	/* assign default bcast filtering configuration */
 	mvm->bcast_filters = iwl_mvm_default_bcast_filters;
 #endif
@@ -804,7 +804,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 		wiphy_ext_feature_set(hw->wiphy,
 				      NL80211_EXT_FEATURE_MU_MIMO_AIR_SNIFFER);
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	iwl_mvm_vendor_cmds_register(mvm);
 #endif
 
@@ -817,7 +817,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 
 	ret = ieee80211_register_hw(mvm->hw);
 	if (ret) {
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 		iwl_mvm_vendor_cmds_unregister(mvm);
 #endif
 		iwl_mvm_leds_exit(mvm);
@@ -1235,7 +1235,7 @@ static void iwl_mvm_restart_complete(struct iwl_mvm *mvm)
 		IWL_ERR(mvm, "Failed to update quotas after restart (%d)\n",
 			ret);
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	if (mvm->csi_cfg.flags & IWL_CHANNEL_ESTIMATION_ENABLE)
 		iwl_mvm_send_csi_cmd(mvm);
 #endif
@@ -1337,9 +1337,9 @@ static void iwl_mvm_mac_stop(struct ieee80211_hw *hw)
 	 */
 	clear_bit(IWL_MVM_STATUS_FIRMWARE_RUNNING, &mvm->status);
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 	cancel_delayed_work_sync(&mvm->tx_latency_watchdog_wk);
-#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
+#endif /* CONFIG_MAC80211_LATENCY_MEASUREMENTS */
 	cancel_delayed_work_sync(&mvm->cs_tx_unblock_dwork);
 	cancel_delayed_work_sync(&mvm->scan_timeout_dwork);
 
@@ -1699,7 +1699,7 @@ static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
 	 */
 	if (vif->type == NL80211_IFTYPE_AP ||
 	    vif->type == NL80211_IFTYPE_ADHOC) {
-#ifdef CPTCFG_NL80211_TESTMODE
+#ifdef CONFIG_NL80211_TESTMODE
 		if (vif == mvm->noa_vif) {
 			mvm->noa_vif = NULL;
 			mvm->noa_duration = 0;
@@ -1710,7 +1710,7 @@ static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
 		goto out_release;
 	}
 
-#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+#ifdef CONFIG_IWLMVM_P2P_OPPPS_TEST_WA
 	if (mvmvif == mvm->p2p_opps_test_wa_vif)
 		mvm->p2p_opps_test_wa_vif = NULL;
 #endif
@@ -1734,9 +1734,9 @@ static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
 	if (vif->type == NL80211_IFTYPE_MONITOR)
 		mvm->monitor_on = false;
 
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 	iwl_mvm_tdls_peer_cache_clear(mvm, vif);
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 
 out_release:
 	mutex_unlock(&mvm->mutex);
@@ -1765,7 +1765,7 @@ static void iwl_mvm_mc_iface_iterator(void *_data, u8 *mac,
 	};
 	int ret, len;
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	if (!(mvm->rx_filters & IWL_MVM_VENDOR_RXFILTER_EINVAL) &&
 	    mvm->mcast_active_filter_cmd)
 		cmd = mvm->mcast_active_filter_cmd;
@@ -1791,7 +1791,7 @@ static void iwl_mvm_mc_iface_iterator(void *_data, u8 *mac,
 		IWL_ERR(mvm, "mcast filter cmd error. ret=%d\n", ret);
 }
 
-#ifndef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifndef CONFIG_IWLMVM_VENDOR_CMDS
 static
 #endif
 void iwl_mvm_recalc_multicast(struct iwl_mvm *mvm)
@@ -1870,7 +1870,7 @@ static void iwl_mvm_configure_filter(struct ieee80211_hw *hw,
 	if (cmd->pass_all)
 		cmd->count = 0;
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	iwl_mvm_active_rx_filters(mvm);
 #endif
 	iwl_mvm_recalc_multicast(mvm);
@@ -1900,7 +1900,7 @@ static void iwl_mvm_config_iface_filter(struct ieee80211_hw *hw,
 	mutex_unlock(&mvm->mutex);
 }
 
-#ifdef CPTCFG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
 struct iwl_bcast_iter_data {
 	struct iwl_mvm *mvm;
 	struct iwl_bcast_filter_cmd *cmd;
@@ -2013,7 +2013,7 @@ bool iwl_mvm_bcast_filter_build_cmd(struct iwl_mvm *mvm,
 	cmd->max_bcast_filters = ARRAY_SIZE(cmd->filters);
 	cmd->max_macs = ARRAY_SIZE(cmd->macs);
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	/* use debugfs filters/macs if override is configured */
 	if (mvm->dbgfs_bcast_filtering.override) {
 		memcpy(cmd->filters, &mvm->dbgfs_bcast_filtering.cmd.filters,
@@ -2028,7 +2028,7 @@ bool iwl_mvm_bcast_filter_build_cmd(struct iwl_mvm *mvm,
 	if (!mvm->bcast_filters)
 		return false;
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	if (!(mvm->rx_filters & IWL_MVM_VENDOR_RXFILTER_EINVAL) &&
 	    mvm->rx_filters & IWL_MVM_VENDOR_RXFILTER_BCAST) {
 		cmd->disable = 1;
@@ -2358,7 +2358,7 @@ static void iwl_mvm_cfg_he_sta(struct iwl_mvm *mvm,
 			    IEEE80211_HE_MAC_CAP2_ACK_EN))
 		flags |= STA_CTXT_HE_NIC_NOT_ACK_ENABLED;
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	if (mvm->trans->dbg_cfg.no_ack_en & 0x2)
 		flags &= ~STA_CTXT_HE_ACK_ENABLED;
 
@@ -4528,7 +4528,7 @@ static int iwl_mvm_set_tim(struct ieee80211_hw *hw,
 	return iwl_mvm_mac_ctxt_beacon_changed(mvm, mvm_sta->vif);
 }
 
-#ifdef CPTCFG_NL80211_TESTMODE
+#ifdef CONFIG_NL80211_TESTMODE
 static const struct nla_policy iwl_mvm_tm_policy[IWL_TM_ATTR_MAX + 1] = {
 	[IWL_TM_ATTR_CMD] = { .type = NLA_U32 },
 	[IWL_TM_ATTR_NOA_DURATION] = { .type = NLA_U32 },
@@ -5187,7 +5187,7 @@ static void iwl_mvm_event_bar_rx_callback(struct iwl_mvm *mvm,
 				event->u.ba.ssn);
 }
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 #define MARKER_CMD_TX_LAT_PAYLOAD_SIZE 5
 #define MARKER_CMD_TX_LAT_TID_OFFSET 12
 #define MARKER_CMD_TX_LAT_DEFAULT_WIN 1000
@@ -5427,7 +5427,7 @@ iwl_mvm_event_tx_latency_callback(struct iwl_mvm *mvm,
 	       sizeof(event->u.tx_lat));
 	schedule_work(&mvm->tx_latency_wk);
 }
-#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
+#endif /* CONFIG_MAC80211_LATENCY_MEASUREMENTS */
 
 static void iwl_mvm_mac_event_callback(struct ieee80211_hw *hw,
 				       struct ieee80211_vif *vif,
@@ -5446,17 +5446,17 @@ static void iwl_mvm_mac_event_callback(struct ieee80211_hw *hw,
 		iwl_mvm_event_frame_timeout_callback(mvm, vif, event->u.ba.sta,
 						     event->u.ba.tid);
 		break;
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 	case TX_LATENCY_EVENT:
 		iwl_mvm_event_tx_latency_callback(mvm, vif, event);
 		break;
-#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
+#endif /* CONFIG_MAC80211_LATENCY_MEASUREMENTS */
 	default:
 		break;
 	}
 }
 
-#define SYNC_RX_QUEUE_TIMEOUT (HZ * CPTCFG_IWL_TIMEOUT_FACTOR)
+#define SYNC_RX_QUEUE_TIMEOUT (HZ * CONFIG_IWL_TIMEOUT_FACTOR)
 void iwl_mvm_sync_rx_queues_internal(struct iwl_mvm *mvm,
 				     struct iwl_mvm_internal_rxq_notif *notif,
 				     u32 size)
@@ -5678,7 +5678,7 @@ const struct ieee80211_ops iwl_mvm_hw_ops = {
 	.del_nan_func = iwl_mvm_del_nan_func,
 
 	.can_aggregate_in_amsdu = iwl_mvm_mac_can_aggregate,
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	.sta_add_debugfs = iwl_mvm_sta_add_debugfs,
 #endif
 };

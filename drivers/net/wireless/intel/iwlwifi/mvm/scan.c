@@ -64,8 +64,8 @@
 #include <net/mac80211.h>
 
 #include "mvm.h"
-#include "fw/api/scan.h"
-#include "iwl-io.h"
+#include "../fw/api/scan.h"
+#include "../iwl-io.h"
 
 #define IWL_DENSE_EBS_SCAN_RATIO 5
 #define IWL_SPARSE_EBS_SCAN_RATIO 1
@@ -956,7 +956,7 @@ static int iwl_mvm_scan_lmac_flags(struct iwl_mvm *mvm,
 	else
 		flags |= IWL_MVM_LMAC_SCAN_FLAG_MATCH;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->scan_iter_notif_enabled)
 		flags |= IWL_MVM_LMAC_SCAN_FLAG_ITER_COMPLETE;
 #endif
@@ -1739,7 +1739,7 @@ static u16 iwl_mvm_scan_umac_flags_v2(struct iwl_mvm *mvm,
 	    mvm->sched_scan_pass_all == SCHED_SCAN_PASS_ALL_ENABLED)
 		flags |= IWL_UMAC_SCAN_GEN_FLAGS_V2_NTFY_ITER_COMPLETE;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->scan_iter_notif_enabled)
 		flags |= IWL_UMAC_SCAN_GEN_FLAGS_V2_NTFY_ITER_COMPLETE;
 #endif
@@ -1788,7 +1788,7 @@ static u16 iwl_mvm_scan_umac_flags(struct iwl_mvm *mvm,
 	if (params->measurement_dwell)
 		flags |= IWL_UMAC_SCAN_GEN_FLAGS_ITER_COMPLETE;
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->scan_iter_notif_enabled)
 		flags |= IWL_UMAC_SCAN_GEN_FLAGS_ITER_COMPLETE;
 #endif
@@ -2161,7 +2161,7 @@ static int iwl_mvm_check_running_scans(struct iwl_mvm *mvm, int type)
 	return -EIO;
 }
 
-#define SCAN_TIMEOUT (CPTCFG_IWL_TIMEOUT_FACTOR * 20000)
+#define SCAN_TIMEOUT (CONFIG_IWL_TIMEOUT_FACTOR * 20000)
 
 void iwl_mvm_scan_timeout_wk(struct work_struct *work)
 {

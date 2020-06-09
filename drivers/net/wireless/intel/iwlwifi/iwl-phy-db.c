@@ -322,7 +322,7 @@ static u16 channel_id_to_txp(struct iwl_phy_db *phy_db, u16 ch_id)
 	}
 	return 0xff;
 }
-#if !IS_ENABLED(CPTCFG_IWLXVT)
+#if !IS_ENABLED(CONFIG_IWLXVT)
 static
 #endif
 int iwl_phy_db_get_section_data(struct iwl_phy_db *phy_db,
@@ -353,7 +353,7 @@ int iwl_phy_db_get_section_data(struct iwl_phy_db *phy_db,
 
 	return 0;
 }
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 IWL_EXPORT_SYMBOL(iwl_phy_db_get_section_data);
 #endif
 

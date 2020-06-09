@@ -81,7 +81,7 @@
 /* Hardware specific file defines the PCI IDs table for that hardware module */
 static const struct pci_device_id iwl_hw_card_ids[] = {
 
-#if IS_ENABLED(CPTCFG_IWLMVM)
+#if IS_ENABLED(CONFIG_IWLMVM)
 /* 7260 Series */
 	{IWL_PCI_DEVICE(0x08B1, 0x4070, iwl7260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B1, 0x4072, iwl7260_2ac_cfg)},
@@ -321,9 +321,9 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x24FD, 0x0012, iwl8275_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24FD, 0x0014, iwl8265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24FD, 0x9074, iwl8265_2ac_cfg)},
-#endif /* IS_ENABLED(CPTCFG_IWLMVM) */
+#endif /* IS_ENABLED(CONFIG_IWLMVM) */
 
-#if IS_ENABLED(CPTCFG_IWLMVM) || IS_ENABLED(CPTCFG_IWLFMAC)
+#if IS_ENABLED(CONFIG_IWLMVM) || IS_ENABLED(CONFIG_IWLFMAC)
 /* 9000 Series */
 	{IWL_PCI_DEVICE(0x2526, PCI_ANY_ID, iwl9000_trans_cfg)},
 	{IWL_PCI_DEVICE(0x271B, PCI_ANY_ID, iwl9560_trans_cfg)},
@@ -372,7 +372,7 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x7AF0, 0x0510, iwlax211_2ax_cfg_so_gf_a0)},
 	{IWL_PCI_DEVICE(0x7AF0, 0x0A10, iwlax211_2ax_cfg_so_gf_a0)},
 
-#endif /* CPTCFG_IWLMVM || CPTCFG_IWLFMAC */
+#endif /* CONFIG_IWLMVM || CONFIG_IWLFMAC */
 
 	{0}
 };
@@ -391,7 +391,7 @@ MODULE_DEVICE_TABLE(pci, iwl_hw_card_ids);
 		      _cfg, _name)
 
 static const struct iwl_dev_info iwl_dev_info_table[] = {
-#if IS_ENABLED(CPTCFG_IWLMVM) || IS_ENABLED(CPTCFG_IWLFMAC)
+#if IS_ENABLED(CONFIG_IWLMVM) || IS_ENABLED(CONFIG_IWLFMAC)
 /* 9000 */
 	IWL_DEV_INFO(0x2526, 0x1550, iwl9260_2ac_cfg, iwl9260_killer_1550_name),
 	IWL_DEV_INFO(0x2526, 0x1551, iwl9560_2ac_cfg_soc, iwl9560_killer_1550s_name),
@@ -771,7 +771,7 @@ static const struct iwl_dev_info iwl_dev_info_table[] = {
 		      IWL_CFG_ANY, IWL_CFG_ANY,
 		      iwl_quz_a0_hr1_b0, iwl_ax101_name),
 
-#endif /* CPTCFG_IWLMVM || CPTCFG_IWLFMAC */
+#endif /* CONFIG_IWLMVM || CONFIG_IWLFMAC */
 };
 
 /* PCI registers */
@@ -837,7 +837,7 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		}
 	}
 
-#if IS_ENABLED(CPTCFG_IWLMVM)
+#if IS_ENABLED(CONFIG_IWLMVM)
 	/*
 	 * special-case 7265D, it has the same PCI IDs.
 	 *
@@ -856,7 +856,7 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		iwl_trans->cfg = cfg_7265d;
 #endif
 
-#if IS_ENABLED(CPTCFG_IWLMVM) || IS_ENABLED(CPTCFG_IWLFMAC)
+#if IS_ENABLED(CONFIG_IWLMVM) || IS_ENABLED(CONFIG_IWLFMAC)
 	if (cfg == &iwlax210_2ax_cfg_so_hr_a0) {
 		if (iwl_trans->hw_rev == CSR_HW_REV_TYPE_TY) {
 			iwl_trans->cfg = &iwlax210_2ax_cfg_ty_gf_a0;

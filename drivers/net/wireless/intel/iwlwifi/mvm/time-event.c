@@ -65,13 +65,13 @@
 #include <linux/jiffies.h>
 #include <net/mac80211.h>
 
-#include "fw/notif-wait.h"
-#include "iwl-trans.h"
+#include "../fw/notif-wait.h"
+#include "../iwl-trans.h"
 #include "fw-api.h"
 #include "time-event.h"
 #include "mvm.h"
-#include "iwl-io.h"
-#include "iwl-prph.h"
+#include "../iwl-io.h"
+#include "../iwl-prph.h"
 
 /*
  * For the high priority TE use a time event type that has similar priority to

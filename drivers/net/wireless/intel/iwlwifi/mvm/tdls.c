@@ -63,8 +63,8 @@
 #include <linux/etherdevice.h>
 #include "mvm.h"
 #include "time-event.h"
-#include "iwl-io.h"
-#include "iwl-prph.h"
+#include "../iwl-io.h"
+#include "../iwl-prph.h"
 
 #define TU_TO_US(x) (x * 1024)
 #define TU_TO_MS(x) (TU_TO_US(x) / 1000)
@@ -728,7 +728,7 @@ retry:
 	mutex_unlock(&mvm->mutex);
 }
 
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 void iwl_mvm_tdls_peer_cache_pkt(struct iwl_mvm *mvm, struct ieee80211_hdr *hdr,
 				 u32 len, int rxq)
 {
@@ -799,4 +799,4 @@ iwl_mvm_tdls_peer_cache_find(struct iwl_mvm *mvm, const u8 *addr)
 
 	return cnt;
 }
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */

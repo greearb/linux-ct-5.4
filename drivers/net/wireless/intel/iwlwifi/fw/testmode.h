@@ -63,7 +63,7 @@
 #ifndef __IWL_TESTMODE_H__
 #define __IWL_TESTMODE_H__
 
-#ifdef CPTCFG_NL80211_TESTMODE
+#ifdef CONFIG_NL80211_TESTMODE
 /**
  * enum iwl_testmode_attrs - testmode attributes inside
  *	NL80211_ATTR_TESTDATA
@@ -96,7 +96,7 @@ enum iwl_testmode_commands {
 };
 #endif
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 struct iwl_host_cmd;
 struct iwl_rx_cmd_buffer;
 

@@ -142,7 +142,7 @@ iwl_mvm_ftm_responder_cmd(struct iwl_mvm *mvm,
 
 	lockdep_assert_held(&mvm->mutex);
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	cmd.cmd_valid_fields |= cpu_to_le32(IWL_MVM_FTM_RESP_VALID);
 	cmd.responder_cfg_flags |= cpu_to_le32(IWL_MVM_FTM_RESP_FLAGS);
 

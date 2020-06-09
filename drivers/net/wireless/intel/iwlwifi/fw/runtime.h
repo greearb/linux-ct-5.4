@@ -60,14 +60,14 @@
 #ifndef __iwl_fw_runtime_h__
 #define __iwl_fw_runtime_h__
 
-#include "iwl-config.h"
-#include "iwl-trans.h"
+#include "../iwl-config.h"
+#include "../iwl-trans.h"
 #include "img.h"
-#include "fw/api/debug.h"
-#include "fw/api/paging.h"
-#include "fw/api/power.h"
-#include "iwl-eeprom-parse.h"
-#include "fw/acpi.h"
+#include "../fw/api/debug.h"
+#include "../fw/api/paging.h"
+#include "../fw/api/power.h"
+#include "../iwl-eeprom-parse.h"
+#include "../fw/acpi.h"
 
 struct iwl_fw_runtime_ops {
 	int (*dump_start)(void *ctx);
@@ -192,14 +192,14 @@ struct iwl_fw_runtime {
 			u32 umac_minor;
 		} fw_ver;
 	} dump;
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	struct {
 		struct delayed_work wk;
 		u32 delay;
 		u64 seq;
 	} timestamp;
 	bool tpc_enabled;
-#endif /* CPTCFG_IWLWIFI_DEBUGFS */
+#endif /* CONFIG_IWLWIFI_DEBUGFS */
 #ifdef CONFIG_ACPI
 	struct iwl_sar_profile sar_profiles[ACPI_SAR_PROFILE_NUM];
 	u8 sar_chain_a_profile;

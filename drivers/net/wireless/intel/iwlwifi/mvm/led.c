@@ -61,8 +61,8 @@
  *****************************************************************************/
 
 #include <linux/leds.h>
-#include "iwl-io.h"
-#include "iwl-csr.h"
+#include "../iwl-io.h"
+#include "../iwl-csr.h"
 #include "mvm.h"
 
 static void iwl_mvm_send_led_fw_cmd(struct iwl_mvm *mvm, bool on)

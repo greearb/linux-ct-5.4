@@ -127,10 +127,10 @@ struct iwl_mod_params {
 	int led_mode;
 	bool power_save;
 	int power_level;
-#ifdef CPTCFG_IWLWIFI_DEBUG
+#ifdef CONFIG_IWLWIFI_DEBUG
 	u32 debug_level;
 #endif
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 	bool xvt_default_mode;
 #endif
 	char *nvm_file;

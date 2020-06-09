@@ -250,7 +250,7 @@ struct iwl_dnt {
 	u32 cur_mon_mode;
 
 	struct iwl_dnt_dispatch dispatch;
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	u8 debugfs_counter;
 	wait_queue_head_t debugfs_waitq;
 	struct dentry *debugfs_entry;

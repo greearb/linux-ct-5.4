@@ -69,7 +69,7 @@
 #include <net/mac80211.h>
 #include <linux/wait.h>
 
-#include "iwl-trans.h" /* for IWL_MAX_TID_COUNT */
+#include "../iwl-trans.h" /* for IWL_MAX_TID_COUNT */
 #include "fw-api.h" /* IWL_MVM_STATION_COUNT */
 #include "rs.h"
 

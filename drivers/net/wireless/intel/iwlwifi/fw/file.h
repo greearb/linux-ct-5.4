@@ -407,13 +407,13 @@ typedef unsigned int __bitwise iwl_ucode_tlv_capa_t;
  * @IWL_UCODE_TLV_CAPA_LQM_SUPPORT: supports Link Quality Measurement
  * @IWL_UCODE_TLV_CAPA_LMAC_UPLOAD: supports upload mode in lmac (1=supported,
  *	0=no support)
-#ifdef CPTCFG_IWLMVM_AX_SOFTAP_TESTMODE
+#ifdef CONFIG_IWLMVM_AX_SOFTAP_TESTMODE
  * @IWL_UCODE_TLV_CAPA_AX_SAP_TM_V2: support 11ax softap testmode APIs version 2
 #endif
  * @IWL_UCODE_TLV_CAPA_TX_POWER_ACK: reduced TX power API has larger
  *	command size (command version 4) that supports toggling ACK TX
  *	power reduction.
-#ifdef CPTCFG_IWLMVM_AX_SOFTAP_TESTMODE
+#ifdef CONFIG_IWLMVM_AX_SOFTAP_TESTMODE
  * @IWL_UCODE_TLV_CAPA_AX_SAP_TM: support 11ax softap testmode APIs
 #endif
  * @IWL_UCODE_TLV_CAPA_D3_DEBUG: supports debug recording during D3
@@ -946,7 +946,7 @@ struct iwl_fw_dbg_trigger_ba {
 	__le16 frame_timeout;
 } __packed;
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 /**
  * struct iwl_fw_dbg_trigger_tx_latency - configures tx latency related trigger
  * @thrshold: the wanted threshold.
@@ -962,7 +962,7 @@ struct iwl_fw_dbg_trigger_tx_latency {
 	__le32 window;
 	__le32 reserved[4];
 } __packed;
-#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
+#endif /* CONFIG_MAC80211_LATENCY_MEASUREMENTS */
 
 /**
  * struct iwl_fw_dbg_trigger_tdls - configures trigger for TDLS events.

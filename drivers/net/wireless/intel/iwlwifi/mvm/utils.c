@@ -61,12 +61,12 @@
  *****************************************************************************/
 #include <net/mac80211.h>
 
-#include "iwl-debug.h"
-#include "iwl-io.h"
-#include "iwl-prph.h"
-#include "iwl-csr.h"
+#include "../iwl-debug.h"
+#include "../iwl-io.h"
+#include "../iwl-prph.h"
+#include "../iwl-csr.h"
 #include "mvm.h"
-#include "fw/api/rs.h"
+#include "../fw/api/rs.h"
 
 /*
  * Will return 0 even if the cmd failed when RFKILL is asserted unless
@@ -76,7 +76,7 @@ int iwl_mvm_send_cmd(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd)
 {
 	int ret;
 
-#if defined(CPTCFG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
+#if defined(CONFIG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
 	if (WARN_ON(mvm->d3_test_active))
 		return -EIO;
 #endif
@@ -130,7 +130,7 @@ int iwl_mvm_send_cmd_status(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd,
 
 	lockdep_assert_held(&mvm->mutex);
 
-#if defined(CPTCFG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
+#if defined(CONFIG_IWLWIFI_DEBUGFS) && defined(CONFIG_PM_SLEEP)
 	if (WARN_ON(mvm->d3_test_active))
 		return -EIO;
 #endif
@@ -838,7 +838,7 @@ int iwl_mvm_update_low_latency(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 
 	iwl_mvm_bt_coex_vif_change(mvm);
 
-#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+#ifdef CONFIG_IWLMVM_VENDOR_TCM_EVENTS
 	iwl_mvm_send_tcm_event(mvm, vif);
 #endif
 
@@ -1105,7 +1105,7 @@ static void iwl_mvm_tcm_iter(void *_data, u8 *mac, struct ieee80211_vif *vif)
 		iwl_mvm_update_low_latency(mvm, vif, low_latency,
 					   LOW_LATENCY_TRAFFIC);
 	} else {
-#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+#ifdef CONFIG_IWLMVM_VENDOR_TCM_EVENTS
 		iwl_mvm_send_tcm_event(mvm, vif);
 #endif
 		iwl_mvm_update_quotas(mvm, false, NULL);
@@ -1127,7 +1127,7 @@ static void iwl_mvm_tcm_results(struct iwl_mvm *mvm)
 		mvm->hw, IEEE80211_IFACE_ITER_NORMAL,
 		iwl_mvm_tcm_iter, &data);
 
-#ifdef CPTCFG_IWLMVM_VENDOR_TCM_EVENTS
+#ifdef CONFIG_IWLMVM_VENDOR_TCM_EVENTS
 	/* send global only */
 	if (mvm->tcm.result.global_change && !data.any_sent)
 		iwl_mvm_send_tcm_event(mvm, NULL);
@@ -1491,7 +1491,7 @@ void iwl_mvm_get_sync_time(struct iwl_mvm *mvm, u32 *gp2, u64 *boottime)
 	}
 }
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 int iwl_mvm_send_csi_cmd(struct iwl_mvm *mvm)
 {
 	/*
@@ -1527,4 +1527,4 @@ int iwl_mvm_send_csi_cmd(struct iwl_mvm *mvm)
 
 	return iwl_mvm_send_cmd_pdu(mvm, id, 0, size, &cfg);
 }
-#endif /* CPTCFG_IWLMVM_VENDOR_CMDS */
+#endif /* CONFIG_IWLMVM_VENDOR_CMDS */

@@ -17,10 +17,10 @@
 
 #include <net/mac80211.h>
 
-#include "iwl-config.h"
+#include "../iwl-config.h"
 
 #include "fw-api.h"
-#include "iwl-trans.h"
+#include "../iwl-trans.h"
 
 #define RS_NAME "iwl-mvm-rs"
 
@@ -217,7 +217,7 @@ struct iwl_rate_mcs_info {
  * struct iwl_lq_sta_rs_fw - rate and related statistics for RS in FW
  * @last_rate_n_flags: last rate reported by FW
  * @sta_id: the id of the station
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
  * @dbg_fixed_rate: for debug, use fixed rate if not 0
  * @dbg_agg_frame_count_lim: for debug, max number of frames in A-MPDU
 #endif
@@ -234,7 +234,7 @@ struct iwl_lq_sta_rs_fw {
 	/* persistent fields - initialized only once - keep last! */
 	struct lq_sta_pers_rs_fw {
 		u32 sta_id;
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 		u32 dbg_fixed_rate;
 		u16 dbg_agg_frame_count_lim;
 #endif
@@ -373,7 +373,7 @@ struct iwl_lq_sta {
 
 	/* persistent fields - initialized only once - keep last! */
 	struct lq_sta_pers {
-#ifdef CPTCFG_MAC80211_DEBUGFS
+#ifdef CONFIG_MAC80211_DEBUGFS
 		u32 dbg_fixed_rate;
 		u8 dbg_fixed_txp_reduction;
 
@@ -436,7 +436,7 @@ struct iwl_mvm_sta;
 int iwl_mvm_tx_protection(struct iwl_mvm *mvm, struct iwl_mvm_sta *mvmsta,
 			  bool enable);
 
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 void iwl_mvm_reset_frame_stats(struct iwl_mvm *mvm);
 #endif
 

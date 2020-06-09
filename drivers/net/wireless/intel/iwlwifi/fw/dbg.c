@@ -2537,8 +2537,8 @@ int iwl_fw_start_dbg_conf(struct iwl_fw_runtime *fwrt, u8 conf_id)
 		IWL_WARN(fwrt, "FW already configured (%d) - re-configuring\n",
 			 fwrt->dump.conf);
 
-#if IS_ENABLED(CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES) && \
-	(IS_ENABLED(CPTCFG_IWLMVM) || IS_ENABLED(CPTCFG_IWLFMAC))
+#if IS_ENABLED(CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES) && \
+	(IS_ENABLED(CONFIG_IWLMVM) || IS_ENABLED(CONFIG_IWLFMAC))
 	/* start default config marker cmd for syncing logs */
 	if (fwrt->trans->dbg_cfg.enable_timestamp_marker_cmd)
 		iwl_fw_trigger_timestamp(fwrt, 1);
@@ -2589,7 +2589,7 @@ static void iwl_fw_dbg_collect_sync(struct iwl_fw_runtime *fwrt, u8 wk_idx)
 		IWL_ERR(fwrt, "Skip fw error dump since bus is dead\n");
 		goto out;
 	}
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	if (fwrt->trans->dbg_cfg.disable_wrt_dump) {
 		IWL_DEBUG_FW_INFO(fwrt, "WRT: Data collection disabled\n");
 		goto out;
@@ -2784,7 +2784,7 @@ void iwl_fw_dbg_stop_restart_recording(struct iwl_fw_runtime *fwrt,
 		iwl_fw_dbg_stop_recording(fwrt->trans, params);
 	else
 		ret = iwl_fw_dbg_restart_recording(fwrt->trans, params);
-#ifdef CPTCFG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (!ret) {
 		if (stop)
 			fwrt->trans->dbg.rec_on = false;

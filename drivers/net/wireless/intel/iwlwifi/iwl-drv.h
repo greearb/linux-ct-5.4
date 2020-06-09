@@ -154,7 +154,7 @@ int iwl_drv_switch_op_mode(struct iwl_drv *drv, const char *new_op_name);
  * must be exported for the sub-modules. However, if it's not split and
  * everything is built-in, then we can avoid that.
  */
-#ifdef CPTCFG_IWLWIFI_OPMODE_MODULAR
+#ifdef CONFIG_IWLWIFI_OPMODE_MODULAR
 #define IWL_EXPORT_SYMBOL(sym)	EXPORT_SYMBOL_GPL(sym)
 #else
 #define IWL_EXPORT_SYMBOL(sym)

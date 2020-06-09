@@ -388,7 +388,7 @@ int iwl_sar_select_profile(struct iwl_fw_runtime *fwrt,
 		}
 	}
 
-#ifdef CPTCFG_IWLMVM_VENDOR_CMDS
+#ifdef CONFIG_IWLMVM_VENDOR_CMDS
 	fwrt->sar_chain_a_profile = prof_a;
 	fwrt->sar_chain_b_profile = prof_b;
 #endif

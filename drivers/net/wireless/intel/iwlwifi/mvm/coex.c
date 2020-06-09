@@ -62,10 +62,10 @@
 #include <linux/etherdevice.h>
 #include <net/mac80211.h>
 
-#include "fw/api/coex.h"
-#include "iwl-modparams.h"
+#include "../fw/api/coex.h"
+#include "../iwl-modparams.h"
 #include "mvm.h"
-#include "iwl-debug.h"
+#include "../iwl-debug.h"
 
 /* 20MHz / 40MHz below / 40Mhz above*/
 static const __le64 iwl_ci_mask[][3] = {

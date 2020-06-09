@@ -65,7 +65,7 @@
 #define __fw_error_dump_h__
 
 #include <linux/types.h>
-#include "fw/api/cmdhdr.h"
+#include "../fw/api/cmdhdr.h"
 
 #define IWL_FW_ERROR_DUMP_BARKER	0x14789632
 #define IWL_FW_INI_ERROR_DUMP_BARKER	0x14789633

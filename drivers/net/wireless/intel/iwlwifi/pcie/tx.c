@@ -1876,7 +1876,7 @@ void iwl_pcie_hcmd_complete(struct iwl_trans *trans,
 	spin_unlock_bh(&txq->lock);
 }
 
-#define HOST_COMPLETE_TIMEOUT	(2 * HZ * CPTCFG_IWL_TIMEOUT_FACTOR)
+#define HOST_COMPLETE_TIMEOUT	(2 * HZ * CONFIG_IWL_TIMEOUT_FACTOR)
 
 static int iwl_pcie_send_hcmd_async(struct iwl_trans *trans,
 				    struct iwl_host_cmd *cmd)
@@ -2012,7 +2012,7 @@ int iwl_trans_pcie_send_hcmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
 	return iwl_pcie_send_hcmd_sync(trans, cmd);
 }
 
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 static void iwl_trans_pci_tx_lat_add_ts_write(struct sk_buff *skb)
 {
 	s64 temp = ktime_to_ms(ktime_get());
@@ -2540,7 +2540,7 @@ int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
 	 * At this point the frame is "transmitted" successfully
 	 * and we will get a TX status notification eventually.
 	 */
-#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
+#ifdef CONFIG_MAC80211_LATENCY_MEASUREMENTS
 	iwl_trans_pci_tx_lat_add_ts_write(skb);
 #endif
 	spin_unlock(&txq->lock);

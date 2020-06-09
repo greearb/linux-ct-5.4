@@ -74,12 +74,12 @@
 #include "fw/img.h"
 #include "iwl-op-mode.h"
 #include <linux/firmware.h>
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 #include "iwl-dbg-cfg.h"
 #endif
 #include "fw/api/cmdhdr.h"
 #include "fw/api/txq.h"
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 #include "fw/testmode.h"
 #endif
 #include "fw/api/dbg-tlv.h"
@@ -119,7 +119,7 @@
  *	6) Eventually, the free function will be called.
  */
 
-#ifndef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifndef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 #define IWL_TRANS_FW_DBG_DOMAIN(trans)	IWL_FW_INI_DOMAIN_ALWAYS_ON
 #else
 #define IWL_TRANS_FW_DBG_DOMAIN(trans)	((trans)->dbg_cfg.FW_DBG_DOMAIN)
@@ -580,7 +580,7 @@ struct iwl_trans_ops {
 
 	int (*start_hw)(struct iwl_trans *iwl_trans);
 	void (*op_mode_leave)(struct iwl_trans *iwl_trans);
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 	int (*start_fw_dbg)(struct iwl_trans *trans, const struct fw_img *fw,
 			    bool run_in_rfkill, u32 fw_dbg_flags);
 	int (*test_mode_cmd)(struct iwl_trans *trans, bool enable);
@@ -718,7 +718,7 @@ enum iwl_ini_cfg_state {
 };
 
 /* Max time to wait for nmi interrupt */
-#define IWL_TRANS_NMI_TIMEOUT (HZ / 4 * CPTCFG_IWL_TIMEOUT_FACTOR)
+#define IWL_TRANS_NMI_TIMEOUT (HZ / 4 * CONFIG_IWL_TIMEOUT_FACTOR)
 
 /**
  * struct iwl_dram_data
@@ -889,7 +889,7 @@ struct iwl_trans {
 	struct lockdep_map sync_cmd_lockdep_map;
 #endif
 
-#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
 	struct iwl_dbg_cfg dbg_cfg;
 #endif
 	struct iwl_trans_debug dbg;
@@ -897,7 +897,7 @@ struct iwl_trans {
 
 	enum iwl_plat_pm_mode system_pm_mode;
 
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+#ifdef CONFIG_IWLWIFI_DEVICE_TESTMODE
 	struct iwl_testmode testmode;
 #endif
 
@@ -960,7 +960,7 @@ static inline int iwl_trans_start_fw(struct iwl_trans *trans,
 	return trans->ops->start_fw(trans, fw, run_in_rfkill);
 }
 
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 enum iwl_xvt_dbg_flags {
 	IWL_XVT_DBG_ADC_SAMP_TEST = BIT(0),
 	IWL_XVT_DBG_ADC_SAMP_SYNC_RX = BIT(1),
@@ -1236,7 +1236,7 @@ static inline int iwl_trans_wait_txq_empty(struct iwl_trans *trans, int queue)
 	return trans->ops->wait_txq_empty(trans, queue);
 }
 
-#if IS_ENABLED(CPTCFG_IWLXVT)
+#if IS_ENABLED(CONFIG_IWLXVT)
 static inline int iwl_trans_test_mode_cmd(struct iwl_trans *trans, bool enable)
 {
 	if (trans->ops->test_mode_cmd)

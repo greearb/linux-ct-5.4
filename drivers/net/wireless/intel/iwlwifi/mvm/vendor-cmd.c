@@ -65,10 +65,10 @@
 #include <net/netlink.h>
 #include <net/mac80211.h>
 #include "mvm.h"
-#include "iwl-vendor-cmd.h"
+#include "../iwl-vendor-cmd.h"
 
-#include "iwl-io.h"
-#include "iwl-prph.h"
+#include "../iwl-io.h"
+#include "../iwl-prph.h"
 
 static LIST_HEAD(device_list);
 static DEFINE_SPINLOCK(device_list_lock);
@@ -277,16 +277,16 @@ static int iwl_vendor_frame_filter_cmd(struct wiphy *wiphy,
 	if (IS_ERR(tb))
 		return PTR_ERR(tb);
 
-	vif->filter_grat_arp_unsol_na =
-		tb[IWL_MVM_VENDOR_ATTR_FILTER_ARP_NA];
-	vif->filter_gtk = tb[IWL_MVM_VENDOR_ATTR_FILTER_GTK];
+	//vif->filter_grat_arp_unsol_na =
+	//	tb[IWL_MVM_VENDOR_ATTR_FILTER_ARP_NA];
+	//vif->filter_gtk = tb[IWL_MVM_VENDOR_ATTR_FILTER_GTK];
 
 	kfree(tb);
 
 	return 0;
 }
 
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 static int iwl_vendor_tdls_peer_cache_add(struct wiphy *wiphy,
 					  struct wireless_dev *wdev,
 					  const void *data, int data_len)
@@ -453,7 +453,7 @@ static int iwl_vendor_tdls_peer_cache_query(struct wiphy *wiphy,
 
 	return cfg80211_vendor_cmd_reply(skb);
 }
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 
 static int iwl_vendor_set_nic_txpower_limit(struct wiphy *wiphy,
 					    struct wireless_dev *wdev,
@@ -531,7 +531,7 @@ free:
 	return err;
 }
 
-#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+#ifdef CONFIG_IWLMVM_P2P_OPPPS_TEST_WA
 static int iwl_mvm_oppps_wa_update_quota(struct iwl_mvm *mvm,
 					 struct ieee80211_vif *vif,
 					 bool enable)
@@ -1233,7 +1233,7 @@ static const struct wiphy_vendor_command iwl_mvm_vendor_commands[] = {
 		.policy = iwl_mvm_vendor_attr_policy,
 		.maxattr = MAX_IWL_MVM_VENDOR_ATTR,
 	},
-#ifdef CPTCFG_IWLMVM_TDLS_PEER_CACHE
+#ifdef CONFIG_IWLMVM_TDLS_PEER_CACHE
 	{
 		.info = {
 			.vendor_id = INTEL_OUI,
@@ -1267,7 +1267,7 @@ static const struct wiphy_vendor_command iwl_mvm_vendor_commands[] = {
 		.policy = iwl_mvm_vendor_attr_policy,
 		.maxattr = MAX_IWL_MVM_VENDOR_ATTR,
 	},
-#endif /* CPTCFG_IWLMVM_TDLS_PEER_CACHE */
+#endif /* CONFIG_IWLMVM_TDLS_PEER_CACHE */
 	{
 		.info = {
 			.vendor_id = INTEL_OUI,
@@ -1279,7 +1279,7 @@ static const struct wiphy_vendor_command iwl_mvm_vendor_commands[] = {
 		.policy = iwl_mvm_vendor_attr_policy,
 		.maxattr = MAX_IWL_MVM_VENDOR_ATTR,
 	},
-#ifdef CPTCFG_IWLMVM_P2P_OPPPS_TEST_WA
+#ifdef CONFIG_IWLMVM_P2P_OPPPS_TEST_WA
 	{
 		.info = {
 			.vendor_id = INTEL_OUI,
