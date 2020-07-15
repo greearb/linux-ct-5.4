@@ -610,6 +610,8 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 	local->hw.wiphy = wiphy;
 
 	local->hw.priv = (char *)local + ALIGN(sizeof(*local), NETDEV_ALIGN);
+	pr_err("local: %p  hw: %p  hw.priv: %p  priv_size: %d  priv_data_len: %d\n",
+	       local, &(local->hw), local->hw.priv, (int)(priv_size), (int)(priv_data_len));
 
 	local->ops = ops;
 	local->use_chanctx = use_chanctx;
