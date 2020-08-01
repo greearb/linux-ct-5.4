@@ -435,6 +435,12 @@ static void iwl_init_vht_hw_capab(struct iwl_trans *trans,
 	int num_tx_ants = num_of_ant(tx_chains);
 	unsigned int max_ampdu_exponent = (cfg->max_vht_ampdu_exponent ?:
 					   IEEE80211_VHT_MAX_AMPDU_1024K);
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	if (trans->dbg_cfg.ampdu_exponent_p1) {
+		max_ampdu_exponent = min((unsigned int)(trans->dbg_cfg.ampdu_exponent_p1 - 1),
+					 max_ampdu_exponent);
+	}
+#endif
 
 	vht_cap->vht_supported = true;
 
