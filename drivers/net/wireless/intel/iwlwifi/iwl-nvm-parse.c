@@ -694,14 +694,15 @@ static void iwl_init_he_hw_capab(struct iwl_trans *trans,
 				 struct ieee80211_supported_band *sband,
 				 u8 tx_chains, u8 rx_chains)
 {
+	int i;
+
 	sband->iftype_data = iwl_he_capa;
 	sband->n_iftype_data = ARRAY_SIZE(iwl_he_capa);
 
-	/* If not 2x2, we need to indicate 1x1 in the Midamble RX Max NSTS */
-	if ((tx_chains & rx_chains) != ANT_AB) {
-		int i;
 
-		for (i = 0; i < sband->n_iftype_data; i++) {
+	for (i = 0; i < sband->n_iftype_data; i++) {
+		/* If not 2x2, we need to indicate 1x1 in the Midamble RX Max NSTS */
+		if ((tx_chains & rx_chains) != ANT_AB) {
 			iwl_he_capa[i].he_cap.he_cap_elem.phy_cap_info[1] &=
 				~IEEE80211_HE_PHY_CAP1_MIDAMBLE_RX_TX_MAX_NSTS;
 			iwl_he_capa[i].he_cap.he_cap_elem.phy_cap_info[2] &=
@@ -709,6 +710,13 @@ static void iwl_init_he_hw_capab(struct iwl_trans *trans,
 			iwl_he_capa[i].he_cap.he_cap_elem.phy_cap_info[7] &=
 				~IEEE80211_HE_PHY_CAP7_MAX_NC_MASK;
 		}
+#ifdef CONFIG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+		if (trans->dbg_cfg.ampdu_exponent_p1) {
+			/* Use whatever is set in the VHT element. */
+			iwl_he_capa[i].he_cap.he_cap_elem.mac_cap_info[3] &= ~IEEE80211_HE_MAC_CAP3_MAX_AMPDU_LEN_EXP_MASK;
+			iwl_he_capa[i].he_cap.he_cap_elem.mac_cap_info[3] |= IEEE80211_HE_MAC_CAP3_MAX_AMPDU_LEN_EXP_USE_VHT;
+		}
+#endif
 	}
 }
 
