@@ -139,4 +139,15 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
  */
 void iwl_get_he_capa(const struct ieee80211_sband_iftype_data **he_capa,
 		     int *he_capa_len);
+
+/**
+ * iwl_reinit_capab - Re-initialize the current HT, VHT and/or HE capabilities
+ *
+ * This should be called when changing values that affect the capabilities, such
+ * as number of spatial streams.
+ */
+void iwl_reinit_capab(struct iwl_trans *trans,
+		      struct iwl_nvm_data *data,
+		      u8 tx_chains, u8 rx_chains);
+
 #endif /* __iwl_nvm_parse_h__ */
