@@ -1106,7 +1106,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta)
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct station_info *sinfo;
 	int ret;
-	int count = 0;
 
 	/*
 	 * NOTE: This assumes at least synchronize_net() was done
@@ -1119,13 +1118,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta)
 	if (sta->sta_state == IEEE80211_STA_AUTHORIZED) {
 		ret = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
 		WARN_ON_ONCE(ret);
-		if (++count > 1000) {
-			/* WTF, bail out so that at least we don't hang the system. */
-			sdata_err(sdata, "Could not move state after 1000 tries, ret: %d  state: %d\n",
-				  ret, sta->sta_state);
-			WARN_ON_ONCE(1);
-			break;
-		}
 	}
 
 	/* now keys can no longer be reached */
