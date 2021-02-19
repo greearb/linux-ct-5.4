@@ -2106,6 +2106,16 @@ static bool ieee80211_parse_tx_radiotap(struct ieee80211_local *local,
 	u8 vht_mcs = 0, vht_nss = 0;
 	int i;
 
+	/* ath10k 5Ghz only radios, at least, won't have a 0 band.  Detect this
+	 * and try different band if that is the case.
+	 */
+	if (!sband) {
+		if (info->band == 0)
+			sband = local->hw.wiphy->bands[1];
+		else
+			sband = local->hw.wiphy->bands[0];
+	}
+
 	info->flags |= IEEE80211_TX_INTFL_DONT_ENCRYPT |
 		       IEEE80211_TX_CTL_DONTFRAG;
 
@@ -2239,7 +2249,7 @@ static bool ieee80211_parse_tx_radiotap(struct ieee80211_local *local,
 		} else if (rate_flags & IEEE80211_TX_RC_VHT_MCS) {
 			ieee80211_rate_set_vht(info->control.rates, vht_mcs,
 					       vht_nss);
-		} else {
+		} else if (sband) {
 			for (i = 0; i < sband->n_bitrates; i++) {
 				if (rate * 5 != sband->bitrates[i].bitrate)
 					continue;
@@ -2247,6 +2257,9 @@ static bool ieee80211_parse_tx_radiotap(struct ieee80211_local *local,
 				info->control.rates[0].idx = i;
 				break;
 			}
+		}
+		else {
+			info->control.rates[0].idx = 0;
 		}
 
 		if (info->control.rates[0].idx < 0)
