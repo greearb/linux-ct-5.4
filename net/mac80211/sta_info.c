@@ -2180,19 +2180,29 @@ static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 		struct ieee80211_supported_band *sband;
 		u16 brate;
 		unsigned int shift;
-		int band = STA_STATS_GET(LEGACY_BAND, rate);
-		int rate_idx = STA_STATS_GET(LEGACY_IDX, rate);
+		u32 band = STA_STATS_GET(LEGACY_BAND, rate);
+		u32 rate_idx = STA_STATS_GET(LEGACY_IDX, rate);
 
 		sband = local->hw.wiphy->bands[band];
 
-		if (WARN_ON_ONCE(!sband)) {
-			pr_err("stats-decode-rate, sband is null, band: %d  rate: 0x%x\n",
-			       band, rate);
+		if (WARN_ON_ONCE(!sband) || (band >= NUM_NL80211_BANDS)) {
+			pr_err("stats-decode-rate, sband is invalid: %p, band: %d  rate: 0x%x\n",
+			       sband, band, rate);
 			break;
 		}
 
-		if (WARN_ON_ONCE(!sband->bitrates))
+		if (WARN_ON_ONCE(!sband->bitrates)) {
+			pr_err("stats-decode-rate, sband bitrates is null, sband: %p, band: %d  rate: 0x%x\n",
+			       sband, band, rate);
 			break;
+		}
+
+		if (WARN_ON_ONCE(rate_idx >= sband->n_bitrates)) {
+			pr_err("stats-decode-rate, sband rate-idx: %d is > %d, sband: %p, band: %d  rate: 0x%x\n",
+			       rate_idx, sband->n_bitrates, sband, band, rate);
+			break;
+		}
+
 
 		brate = sband->bitrates[rate_idx].bitrate;
 		if (rinfo->bw == RATE_INFO_BW_5)
@@ -2217,7 +2227,7 @@ static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 
 static int sta_set_rate_info_rx(struct sta_info *sta, struct rate_info *rinfo)
 {
-	u16 rate = READ_ONCE(sta_get_last_rx_stats(sta)->last_rate);
+	u32 rate = READ_ONCE(sta_get_last_rx_stats(sta)->last_rate);
 
 	if (rate == STA_STATS_RATE_INVALID)
 		return -EINVAL;
