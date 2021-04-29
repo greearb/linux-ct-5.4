@@ -59,7 +59,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"rx_duplicates", "rx_fragments", "rx_dropped",
 	"tx_packets", "tx_bytes",
 	"tx_filtered", "tx_retry_failed", "tx_retries",
-	"sta_state", "txrate", "rxrate", "signal",
+	"sta_state", "txrate", "rxrate", "signal", "signal_beacon",
 	"channel", "noise", "ch_time", "ch_time_busy",
 	"ch_time_ext_busy", "ch_time_rx", "ch_time_tx"
 };
@@ -146,6 +146,10 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
 			data[i] = (u8)sinfo.signal_avg;
 		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+			data[i] = (u8)sinfo.rx_beacon_signal_avg;
+		i++;
 	} else {
 		int amt_tx = 0;
 		int amt_rx = 0;
@@ -153,6 +157,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		s64 tx_accum = 0;
 		s64 rx_accum = 0;
 		s64 sig_accum = 0;
+		s64 sig_accum_beacon = 0;
 		list_for_each_entry(sta, &local->sta_list, list) {
 			/* Make sure this station belongs to the proper dev */
 			if (sta->sdata->dev != dev)
@@ -169,24 +174,30 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				tx_accum += 100000ULL *
 					cfg80211_calculate_bitrate(&sinfo.txrate);
 				amt_tx++;
-				data[i] = mac_div(tx_accum, amt_tx);
 			}
+			if (amt_tx)
+				data[i] = mac_div(tx_accum, amt_tx);
 			i++;
 
 			if (sinfo.filled & BIT(NL80211_STA_INFO_RX_BITRATE)) {
 				rx_accum += 100000ULL *
 					cfg80211_calculate_bitrate(&sinfo.rxrate);
 				amt_rx++;
-				data[i] = mac_div(rx_accum, amt_rx);
 			}
+			if (amt_rx)
+				data[i] = mac_div(rx_accum, amt_rx);
 			i++;
 
 			if (sinfo.filled & BIT(NL80211_STA_INFO_SIGNAL_AVG)) {
 				sig_accum += sinfo.signal_avg;
+				sig_accum_beacon += sinfo.rx_beacon_signal_avg;
 				amt_sig++;
-				data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
 			}
-			i++;
+			if (amt_sig) {
+				data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
+				data[i+1] = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
+			}
+			i += 2;
 
 			/*pr_err("sta: %p (%s) sig_accum: %ld  amt-sig: %d filled: 0x%x:%08x rpt-sig-avg: %d  i: %d  div: %d sinfo.signal_avg: %d\n",
 			       sta, sta->sdata->name, (long)(sig_accum), amt_sig, (u32)(sinfo.filled >> 32),
