@@ -109,13 +109,10 @@ asmlinkage void aesni_ctr_enc(struct crypto_aes_ctx *ctx, u8 *out,
 
 static void (*aesni_ctr_enc_tfm)(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
-<<<<<<< HEAD
 asmlinkage void aesni_ctr_enc(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
-=======
 asmlinkage void aesni_xts_crypt8(struct crypto_aes_ctx *ctx, u8 *out,
 				 const u8 *in, bool enc, u8 *iv);
->>>>>>> crypto: aesni - add ccm(aes) algorithm implementation
 
 /* asmlinkage void aesni_gcm_enc()
  * void *ctx,  AES Key schedule. Starts on a 16 byte boundary.
