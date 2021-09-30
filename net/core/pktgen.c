@@ -4282,16 +4282,19 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev, u64 now)
 			}
 			pkt_dev->next_tx_ns = getRelativeCurNs() + burst_sofar_ns;
 			break;
-		case NET_XMIT_DROP: /* skb has been consumed if we get these next 3 */
+		case NET_XMIT_DROP: /* skb was dropped, and has been consumed */
 			pkt_dev->xmit_dropped++;
-			goto retry_next_time;
-		case NET_XMIT_CN:
+			pkt_dev->last_ok = 1; /* was consumed */
+			goto retry_next_time_ok;
+		case NET_XMIT_CN: /* congestion reported, skb was consumed */
+			pkt_dev->last_ok = 1; /* was consumed */
 			pkt_dev->xmit_cn++;
-			goto retry_next_time;
+			goto retry_next_time_ok;
 		default: /* Drivers are not supposed to return other values! */
-			net_info_ratelimited("%s xmit error: %d\n",
+			net_info_ratelimited("pktgen ERROR: %s unknown xmit error: %d\n",
 					pkt_dev->odevname, ret);
-			/* fallthru */
+			pkt_dev->last_ok = 1; /* was consumed, we suppose */
+			goto retry_next_time_ok;
 		case NETDEV_TX_BUSY:
 			/* Retry it next time */
 			if (do_once_hsx_wrn) {
@@ -4306,9 +4309,10 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev, u64 now)
 
 			pkt_dev->queue_stopped++;
 
-		retry_next_time:
-			pkt_dev->errors++;
 			pkt_dev->last_ok = 0;
+
+		retry_next_time_ok:
+			pkt_dev->errors++;
 
 			/* Try a little later..flag us as wanting to tx, but unable.  Will try again shortly.
 			 */
